@@ -584,6 +584,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
     rows = []
     seller_ids, brand_ids_seen = set(), set()
     matched = total_lines = skipped_old = skipped_company = skipped_status = 0
+    name_fallback = 0
     rep_orders = 0
     recon_order_total = recon_net_total = recon_gross_total = 0.0
     brand_q = (brand_q or "").strip().lower()
@@ -667,10 +668,21 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
             if isinstance(_pbid, dict):
                 _pbid = _pbid.get("id")
             _line_brand = brand_map.get(str(_pbid)) if _pbid is not None else ""
-            # Per-line catalog brand wins (splits multi-brand orders); order-level
-            # brand_ids is the fallback for products not found in the catalog.
-            brand = (_cat_brand or _line_brand or order_brand or _name_of(prod.get("brand"))
-                     or _name_of(prod.get("brand_name")) or pname)
+            # Name-based fallback, MULTI-BRAND ORDERS ONLY: when a line has no precise
+            # brand (SKU not in catalog), match its product name against THIS order's
+            # own resolved brand names. Accept only when exactly one of them matches,
+            # so we never reassign to a brand the order didn't actually contain.
+            _name_brand = ""
+            if not _cat_brand and not _line_brand and len(_onames) > 1:
+                _pn = pname.lower()
+                _hits = list({nm for nm in _onames if nm and nm.lower() in _pn})
+                if len(_hits) == 1:
+                    _name_brand = _hits[0]
+                    name_fallback += 1
+            # Precise catalog/line brand wins, then the constrained name match, then
+            # the order-level brand_ids label for anything still ambiguous.
+            brand = (_cat_brand or _line_brand or _name_brand or order_brand
+                     or _name_of(prod.get("brand")) or _name_of(prod.get("brand_name")) or pname)
             qty = _amount(li.get("quantity")) or 0.0
             mult = _amount(li.get("unit_multiplier")) or 1.0
             sold_units = qty / mult if mult else qty
@@ -729,6 +741,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
         "brand_ids": sorted(brand_ids_seen),
         "matched": matched, "total_lines": total_lines, "skipped_old": skipped_old,
         "skipped_company": skipped_company, "skipped_status": skipped_status,
+        "name_fallback": name_fallback,
         "rep_orders": rep_orders,
         "recon_order_total": round(recon_order_total, 2),
         "recon_net_total": round(recon_net_total, 2),
@@ -985,6 +998,7 @@ def main():
     print(f"Brand id(s) in data:  {st['brand_ids']}   (Chill Medicated = 2425)")
     print(f"Date floor: {FROM_DATE or '(none)'}  ->  skipped {st['skipped_old']} older orders")
     print(f"Line items: {st['total_lines']} in range -> {st['matched']} kept (brand '{BRAND_FILTER}')")
+    print(f"Name-based fallback reassigned {st['name_fallback']} line(s) in multi-brand orders.")
     print(f"Sales-rep enrichment: {st['rep_orders']} orders matched a rep "
           f"(0 = customers endpoint had no rep data / not permitted)")
     # After net allocation, sum of net should equal sum of order totals (ratio ~1.000).
