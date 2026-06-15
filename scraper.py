@@ -79,6 +79,19 @@ PRODUCTS_ENDPOINTS = [e.strip() for e in os.getenv(
     "LEAFLINK_PRODUCTS_ENDPOINTS",
     "/api/v2/products/"
 ).split(",") if e.strip()]
+
+# Brand-name resolution. LeafLink puts brands on the order as numeric `brand_ids`,
+# not on the product line, so we map id -> name from the brands endpoint. Several
+# candidate paths are tried in order; the first that returns brands wins.
+BRANDS_ENDPOINTS = [e.strip() for e in os.getenv(
+    "LEAFLINK_BRANDS_ENDPOINTS",
+    ",".join([
+        f"/api/v2/brands/?company={SELLER_ID}" if SELLER_ID else "/api/v2/brands/",
+        f"/api/v2/brands/?seller={SELLER_ID}" if SELLER_ID else "",
+        f"/api/v2/companies/{SELLER_ID}/brands/" if SELLER_ID else "",
+        "/api/v2/brands/",
+    ])
+).split(",") if e.strip()]
 # Real LeafLink product inventory fields (per API docs): available_inventory =
 # quantity minus reserved; quantity = total inventory level. Prefer available.
 INV_FIELDS = [f.strip() for f in os.getenv(
@@ -367,6 +380,47 @@ def fetch_users():
     return out
 
 
+def fetch_brands():
+    """Build {brand_id(str): name} by paging the brands endpoint(s). {} on failure."""
+    if not API_KEY:
+        return {}
+    out = {}
+    for ep in BRANDS_ENDPOINTS:
+        url = f"{API_BASE}{ep}"
+        resp = _get(url, {"page_size": PAGE_SIZE, "page": 1})
+        if resp.status_code != 200:
+            continue
+        try:
+            data = resp.json()
+        except Exception:
+            continue
+        added = 0
+        while True:
+            batch = data.get("results", data if isinstance(data, list) else [])
+            for b in batch:
+                if not isinstance(b, dict):
+                    continue
+                bid = _first(b, "id", "pk", "brand_id")
+                nm = _name_of(b)
+                if bid is not None and nm:
+                    out.setdefault(str(bid), nm)
+                    added += 1
+            nxt = data.get("next") if isinstance(data, dict) else None
+            if not nxt:
+                break
+            resp = _get(nxt, None)
+            if resp.status_code != 200:
+                break
+            try:
+                data = resp.json()
+            except Exception:
+                break
+        if added:
+            print(f"  resolved {added} brand name(s) from {ep}")
+            break
+    return out
+
+
 def _state_of(c):
     if not isinstance(c, dict):
         return ""
@@ -512,7 +566,7 @@ def _order_customer_keys(o):
     return cid, nm
 
 
-def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None):
+def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, brand_map=None):
     enrich = enrich or {}
     rep_by_id = enrich.get("rep_by_id", {}); rep_by_name = enrich.get("rep_by_name", {})
     state_by_id = enrich.get("state_by_id", {}); state_by_name = enrich.get("state_by_name", {})
@@ -520,6 +574,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None):
     city_by_id = enrich.get("city_by_id", {}); city_by_name = enrich.get("city_by_name", {})
     inv = inv or {}
     inv_by_id = inv.get("by_id", {}); inv_by_sku = inv.get("by_sku", {})
+    brand_map = brand_map or {}
     rows = []
     seller_ids, brand_ids_seen = set(), set()
     matched = total_lines = skipped_old = skipped_company = skipped_status = 0
@@ -536,6 +591,9 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None):
             seller_ids.add(sid)
         for b in (o.get("brand_ids") or []):
             brand_ids_seen.add(b)
+        _oids = [str(b) for b in (o.get("brand_ids") or [])]
+        _onames = [brand_map.get(i) for i in _oids if brand_map.get(i)]
+        order_brand = ", ".join(_onames) if _onames else (("Brand " + _oids[0]) if _oids else "")
 
         # Company filter: only Medfarms (seller id).
         if seller_id and str(sid) != seller_id:
@@ -595,7 +653,12 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None):
                 continue
             prod = _frozen_product(li)
             pname = prod.get("name") or _first(li, "product_name") or ""
-            brand = (_name_of(prod.get("brand")) or _name_of(prod.get("brand_name")) or pname)
+            _pbid = prod.get("brand")
+            if isinstance(_pbid, dict):
+                _pbid = _pbid.get("id")
+            _line_brand = brand_map.get(str(_pbid)) if _pbid is not None else ""
+            brand = (_line_brand or order_brand or _name_of(prod.get("brand"))
+                     or _name_of(prod.get("brand_name")) or pname)
             qty = _amount(li.get("quantity")) or 0.0
             mult = _amount(li.get("unit_multiplier")) or 1.0
             sold_units = qty / mult if mult else qty
@@ -631,8 +694,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None):
                 _cur_inv = inv_by_sku.get(_sku)
             rows.append({
                 **common,
-                "brand": (_name_of(prod.get("brand")) or _name_of(prod.get("brand_name"))
-                          or (BRAND_FILTER if brand_q else "")),
+                "brand": brand,
                 "product_name": pname,
                 "product_sku": prod.get("sku") or "",
                 "current_inventory": _cur_inv,
@@ -855,12 +917,19 @@ def main():
             print(json.dumps(lis[0], default=str)[:2500])
         print("--- end sample ---\n")
 
-    rows, st = flatten(orders, BRAND_FILTER, FROM_DATE, SELLER_ID, enrich, inv)
+    print("Fetching brands for brand-name resolution...")
+    brand_map = fetch_brands()
+    if brand_map:
+        print(f"Brands resolved: {len(brand_map)} | e.g. {list(brand_map.items())[:6]}")
+    else:
+        print("Brands resolved: 0 (rows will be tagged 'Brand <id>' — set LEAFLINK_BRANDS_ENDPOINTS)")
+
+    rows, st = flatten(orders, BRAND_FILTER, FROM_DATE, SELLER_ID, enrich, inv, brand_map)
 
     if BRAND_FILTER.strip() and st["matched"] == 0 and st["total_lines"] > 0:
         print(f"WARNING: brand '{BRAND_FILTER}' matched 0 of {st['total_lines']} lines.")
         print("Keeping ALL rows so you still get data — check the product-name field.")
-        rows, st = flatten(orders, "", FROM_DATE, SELLER_ID, enrich, inv)
+        rows, st = flatten(orders, "", FROM_DATE, SELLER_ID, enrich, inv, brand_map)
 
     if incremental:
         fresh_uids = {str(o.get("number") or o.get("id")) for o in orders}
