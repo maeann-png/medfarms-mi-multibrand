@@ -15,6 +15,7 @@ Field mapping is based on the real LeafLink response:
 """
 
 import json
+import gzip
 import os
 import sys
 import time
@@ -100,7 +101,7 @@ STATUS_FIELDS = [f.strip() for f in os.getenv(
     "LEAFLINK_STATUS_FIELDS",
     "listing_state,status,product_status,state,listing_status,product_state"
 ).split(",") if f.strip()]
-OUTPUT_FILE = Path(__file__).parent / "sales_data.json"
+OUTPUT_FILE = Path(__file__).parent / "sales_data.json.gz"
 
 
 # ----------------------------------------------------------------------------
@@ -794,7 +795,8 @@ def load_existing():
     """Return (rows, from_date) from the committed sales_data.json, or ([], "")."""
     if OUTPUT_FILE.exists():
         try:
-            d = json.loads(OUTPUT_FILE.read_text())
+            with gzip.open(OUTPUT_FILE, "rt", encoding="utf-8") as f:
+                d = json.load(f)
             return d.get("rows", []) or [], d.get("from_date", "") or ""
         except Exception as e:
             print(f"  NOTE: could not read existing {OUTPUT_FILE.name} ({e}); full pull.")
@@ -903,7 +905,8 @@ def main():
         "inventory": (inv or {}).get("catalog", []),
         "rows": rows,
     }
-    OUTPUT_FILE.write_text(json.dumps(payload, separators=(",", ":"), default=str))
+    with gzip.open(OUTPUT_FILE, "wt", encoding="utf-8") as f:
+        json.dump(payload, f, separators=(",", ":"), default=str)
     size_mb = OUTPUT_FILE.stat().st_size / 1e6
     print(f"\nSaved -> {OUTPUT_FILE} ({size_mb:.2f} MB, {len(rows)} rows)")
 
