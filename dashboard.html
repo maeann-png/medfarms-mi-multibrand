@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Medfarms · Multi-Brand Sales Intelligence</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+  :root {
+    /* Medfarms · Michigan — golden chartreuse on near-black */
+    --bg: #13140d;
+    --bg-elev: #1c1e12;
+    --bg-elev-2: #262915;
+    --border: #33371f;
+    --border-soft: #23260f;
+    --text: #f0f1e6;
+    --text-dim: #a8ab92;
+    --text-faint: #6b6e58;
+    --accent: #e8d838;          /* golden chartreuse */
+    --accent-dim: #a89c20;
+    --accent-deep: #6b6410;
+    --warm: #e0a85a;
+    --cool: #b5c98a;
+    --rose: #e07594;
+    --internal: #7fc8e0;        /* distinct tint for internal stores */
+    --internal-dim: #3f7e96;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background-image:
+      radial-gradient(ellipse 1200px 600px at 80% -10%, rgba(232,216,56,0.05), transparent 60%),
+      radial-gradient(ellipse 800px 400px at 0% 100%, rgba(107,100,16,0.06), transparent 60%);
+  }
+
+  .font-display { font-family: 'Fraunces', serif; font-variation-settings: "opsz" 144; letter-spacing: -0.02em; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  .app { max-width: 1600px; margin: 0 auto; padding: 32px 40px 80px; }
+
+  /* Top bar */
+  .topbar {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .brand-mark { display: flex; align-items: center; gap: 16px; }
+  .brand-name {
+    font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px;
+    letter-spacing: -0.02em; color: var(--text); line-height: 1;
+  }
+  .brand-name em { color: var(--accent); font-style: italic; font-weight: 400; }
+  .brand-tag {
+    margin-top: 5px; font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--text-faint);
+  }
+  .topbar-meta {
+    display: flex; gap: 18px; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim);
+  }
+  .topbar-meta strong { color: var(--text); font-weight: 500; }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  /* Brand tabs */
+  .tabbar {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    padding-top: 6px;
+  }
+  .tab {
+    background: transparent; border: none; cursor: pointer;
+    padding: 14px 20px 12px; position: relative;
+    font-family: 'Inter', sans-serif; color: var(--text-dim);
+    display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+    transition: color 0.15s;
+    border-radius: 4px 4px 0 0;
+  }
+  .tab:hover { color: var(--text); background: var(--bg-elev); }
+  .tab-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .tab-sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); }
+  .tab.active { color: var(--text); }
+  .tab.active .tab-sub { color: var(--accent); }
+  .tab.active::after {
+    content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px;
+    background: var(--accent); border-radius: 2px;
+  }
+  .tab.tab-all .tab-name { font-family: 'Fraunces', serif; font-style: italic; font-weight: 400; }
+
+  /* Filter bar */
+  .filters {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    padding: 16px 20px; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 4px; margin-bottom: 30px;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+  .filter-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); }
+  .filter-input, .filter-select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; font-family: 'Inter', sans-serif; font-size: 13px;
+    border-radius: 2px; outline: none; transition: border-color 0.15s;
+  }
+  .filter-input:focus, .filter-select:focus { border-color: var(--accent-dim); }
+  .filter-input::placeholder { color: var(--text-faint); }
+  .filter-reset {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 8px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.1em; border-radius: 2px; cursor: pointer;
+    align-self: flex-end; transition: all 0.15s;
+  }
+  .filter-reset:hover { color: var(--text); border-color: var(--text-dim); }
+
+  /* KPI grid */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--border); border: 1px solid var(--border);
+    border-radius: 4px; overflow: hidden; margin-bottom: 24px;
+  }
+  .kpi { background: var(--bg-elev); padding: 22px 22px; display: flex; flex-direction: column; gap: 6px; position: relative; transition: background 0.2s; }
+  .kpi:hover { background: var(--bg-elev-2); }
+  .kpi-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-faint); }
+  .kpi-value { font-family: 'Fraunces', serif; font-weight: 400; font-size: 32px; line-height: 1.1; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+  .kpi-sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .kpi-accent .kpi-value { color: var(--accent); }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; width: 24px; height: 2px; background: var(--accent); opacity: 0; transition: opacity 0.2s; }
+  .kpi:hover::before { opacity: 1; }
+
+  .section { margin-bottom: 34px; }
+  .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-family: 'Fraunces', serif; font-weight: 500; font-size: 20px; letter-spacing: -0.01em; }
+  .section-title em { color: var(--text-dim); font-style: italic; font-weight: 400; }
+  .section-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.12em; }
+
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 4px; padding: 24px; }
+
+  .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+  .grid-half { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  /* Rank list */
+  .rank-list { display: flex; flex-direction: column; }
+  .rank-row { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border-soft); position: relative; }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+  .rank-name { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank-value { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 500; }
+  .rank-bar { position: absolute; bottom: 0; left: 38px; right: 0; height: 1px; background: var(--accent-dim); opacity: 0.4; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); font-weight: 500; background: var(--bg-elev-2); position: sticky; top: 0; }
+  .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border-soft); color: var(--text); }
+  .data-table tr:hover td { background: rgba(232,216,56,0.03); }
+  .data-table .num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; text-align: right; }
+  .data-table .dim { color: var(--text-dim); }
+
+  /* Internal stores section wrapper */
+  .internal-zone {
+    border: 1px solid var(--internal-dim);
+    border-left: 3px solid var(--internal);
+    border-radius: 4px;
+    padding: 26px 26px 30px;
+    margin-bottom: 34px;
+    background: linear-gradient(180deg, rgba(127,200,224,0.04), transparent 220px);
+  }
+  .internal-zone .kpi-accent .kpi-value { color: var(--internal); }
+  .internal-zone .kpi::before { background: var(--internal); }
+  .internal-badge {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--internal);
+    border: 1px solid var(--internal-dim); border-radius: 2px; padding: 3px 9px; margin-bottom: 6px;
+  }
+
+  /* Status pill */
+  .pill { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 8px; border-radius: 2px; border: 1px solid; }
+  .pill-completed { color: var(--accent); border-color: var(--accent-dim); background: rgba(232,216,56,0.06); }
+  .pill-pending { color: var(--warm); border-color: var(--warm); background: rgba(224,168,90,0.06); }
+  .pill-overdue { color: var(--rose); border-color: var(--rose); background: rgba(224,117,148,0.06); }
+
+  .empty { text-align: center; padding: 80px 20px; color: var(--text-dim); }
+  .empty h2 { font-family: 'Fraunces', serif; font-weight: 400; font-style: italic; font-size: 28px; margin-bottom: 12px; color: var(--text); }
+  .empty code { display: inline-block; background: var(--bg-elev); border: 1px solid var(--border); padding: 4px 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; border-radius: 2px; color: var(--accent); margin: 0 2px; }
+
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-half { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+/* ===========================================================================
+   ACCOUNT ROUTING  —  EDIT THIS BLOCK TO RECLASSIFY ACCOUNTS
+   ---------------------------------------------------------------------------
+   Matching is "buyer name starts with" (case-insensitive), so a base entry
+   like "Dispo - Romeo" also catches "Dispo - Romeo MED", etc.
+   EXCLUDE is checked first, then INTERNAL, otherwise the account is WHOLESALE.
+   =========================================================================== */
+const EXCLUDE_ACCOUNTS = [
+  "Chill CBD Ecommerce",
+  "Dispo Ace Production",
+  "GNO",                          // matches "GNO Enterprises - Backpack Boyz - Monroe"
+];
+const INTERNAL_STORES = [
+  "Dispo - Bay City North",       // + "... MED"
+  "Dispo - Bay City South",       // + "... MED"
+  "Dispo - Battle Creek (Fire Creek)",   // your "Dispo - Fire Creek Battle Creek"
+  "Dispo - Hazel Park",
+  "Dispo - Romeo",
+  "Dispo - Whitmore Lake",
+];
+
+const classifyAccount = (buyerName) => {
+  const n = String(buyerName || '').trim().toLowerCase();
+  if (!n) return 'wholesale';
+  for (const e of EXCLUDE_ACCOUNTS) if (n.startsWith(e.toLowerCase())) return 'excluded';
+  for (const s of INTERNAL_STORES) if (n.startsWith(s.toLowerCase())) return 'internal';
+  return 'wholesale';
+};
+/* ========================================================================= */
+
+if (typeof Recharts === 'undefined') {
+  document.getElementById('root').innerHTML =
+    '<div style="max-width:600px;margin:80px auto;padding:32px;background:#1c1e12;border:1px solid #33371f;border-radius:4px;color:#f0f1e6;font-family:sans-serif">' +
+    '<h2 style="font-family:Fraunces,serif;font-weight:400;font-style:italic;margin-bottom:12px">Charts library didn\'t load</h2>' +
+    '<p style="color:#a8ab92;line-height:1.6">Recharts failed to load from the CDN — usually an ad blocker, firewall, or offline. Disable extensions for this page or refresh.</p></div>';
+  throw new Error('Recharts failed to load');
+}
+
+const {
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell
+} = Recharts;
+
+// --- Helpers ----------------------------------------------------------------
+const parseMoney = (str) => {
+  if (str == null) return 0;
+  if (typeof str === 'number') return str;
+  let s = String(str).replace(/[$,\s]/g, '');
+  if (/^\(.*\)$/.test(s)) s = '-' + s.slice(1, -1);
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+const fmtMoney = (n) => {
+  if (!n && n !== 0) return '—';
+  if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+};
+const fmtMoneyFull = (n) => '$' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtNum = (n) => (n || 0).toLocaleString();
+const parseDate = (str) => {
+  if (!str) return null;
+  const s = String(str).trim();
+  const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) return new Date(+ymd[1], +ymd[2] - 1, +ymd[3]);
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdy) return new Date(+mdy[3], +mdy[1] - 1, +mdy[2]);
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+};
+const ymdStr = (d) => {
+  if (!(d instanceof Date) || isNaN(d)) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const PIE_COLORS = ['#e8d838', '#a89c20', '#b5c98a', '#e0a85a', '#7fc8e0', '#e07594', '#a8ab92', '#6b6e58'];
+
+// --- App --------------------------------------------------------------------
+function App() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const load = () => {
+      // Tries the live file first, then the trimmed preview file.
+      fetch('sales_data.json?t=' + Date.now())
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(setData)
+        .catch(() => {
+          fetch('sales_data.preview.json?t=' + Date.now())
+            .then(r => { if (!r.ok) throw new Error('Could not load sales_data.json'); return r.json(); })
+            .then(setData)
+            .catch(e => setError(e.message));
+        });
+    };
+    load();
+    const id = setInterval(load, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (error) return (
+    <div className="app"><div className="empty">
+      <h2>No data yet</h2>
+      <p>Place <code>sales_data.json</code> next to this file, then refresh.</p>
+      <p style={{ marginTop: 12, fontSize: 12, color: 'var(--text-faint)' }}>{error}</p>
+    </div></div>
+  );
+  if (!data) return <div className="app"><div className="empty"><h2>Loading…</h2></div></div>;
+  return <Dashboard data={data} />;
+}
+
+// --- Dashboard --------------------------------------------------------------
+function Dashboard({ data }) {
+  const rawRows = data.rows || [];
+  const [activeBrand, setActiveBrand] = useState('ALL');
+  const [filters, setFilters] = useState({ from: '', to: '', buyer: '', rep: '', state: '', status: '', search: '', excludeSamples: false });
+
+  // Normalize + classify every row once.
+  const all = useMemo(() => rawRows.map(r => {
+    const bucket = classifyAccount(r.buyer_name);
+    return {
+      ...r,
+      _bucket: bucket,
+      brand: r.brand || '(no brand)',
+      _date: parseDate(r.order_date),
+      _delivery: parseDate(r.delivery_date),
+      _revenue: typeof r.revenue === 'number' ? r.revenue : parseMoney(r.revenue),
+      _gross: typeof r.gross === 'number' ? r.gross : parseMoney(r.gross),
+      _discount: typeof r.discount === 'number' ? r.discount : parseMoney(r.discount),
+      _units: parseFloat(r.units_sold != null ? r.units_sold : r.quantity) || 0,
+      _invoice: r.order_number || r.order_uid || '',
+      _invoiceId: r.order_uid || r.order_number || '',
+      _isSample: !!r.is_sample,
+    };
+  }), [rawRows]);
+
+  // Excluded accounts are dropped from EVERYTHING.
+  const kept = useMemo(() => all.filter(r => r._bucket !== 'excluded'), [all]);
+  const excludedRows = useMemo(() => all.filter(r => r._bucket === 'excluded'), [all]);
+
+  // Brands present (across wholesale + internal).
+  const brands = useMemo(() => {
+    const map = {};
+    kept.forEach(r => { map[r.brand] = (map[r.brand] || 0) + (r._bucket === 'wholesale' ? r._revenue : 0); });
+    return Object.entries(map).map(([name, rev]) => ({ name, rev })).sort((a, b) => b.rev - a.rev);
+  }, [kept]);
+
+  // Rows for the active brand (ALL = no brand filter), before UI filters.
+  const brandRows = useMemo(
+    () => activeBrand === 'ALL' ? kept : kept.filter(r => r.brand === activeBrand),
+    [kept, activeBrand]
+  );
+
+  // Apply UI filters.
+  const applyFilters = (rows) => rows.filter(r => {
+    if (filters.from || filters.to) {
+      if (!r._date) return false;
+      const d = ymdStr(r._date);
+      if (filters.from && d < filters.from) return false;
+      if (filters.to && d > filters.to) return false;
+    }
+    if (filters.buyer && r.buyer_name !== filters.buyer) return false;
+    if (filters.rep && r.sales_rep !== filters.rep) return false;
+    if (filters.state && r.buyer_state !== filters.state) return false;
+    if (filters.status && r.payment_status !== filters.status) return false;
+    if (filters.excludeSamples && r._isSample) return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      const hay = `${r._invoice} ${r.buyer_name} ${r.product_name}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const filtered = useMemo(() => applyFilters(brandRows), [brandRows, filters]);
+  const wholesale = useMemo(() => filtered.filter(r => r._bucket === 'wholesale'), [filtered]);
+  const internal = useMemo(() => filtered.filter(r => r._bucket === 'internal'), [filtered]);
+
+  // Distinct values for filter dropdowns (from brand rows, both buckets).
+  const distinct = useMemo(() => ({
+    buyers: [...new Set(brandRows.filter(r => r._bucket === 'wholesale').map(r => r.buyer_name).filter(Boolean))].sort(),
+    reps: [...new Set(brandRows.map(r => r.sales_rep).filter(Boolean))].sort(),
+    states: [...new Set(brandRows.map(r => r.buyer_state).filter(Boolean))].sort(),
+    statuses: [...new Set(brandRows.map(r => r.payment_status).filter(Boolean))].sort(),
+  }), [brandRows]);
+
+  const resetFilters = () => setFilters({ from: '', to: '', buyer: '', rep: '', state: '', status: '', search: '', excludeSamples: false });
+
+  const fetchedAt = new Date(data.fetched_at);
+  const brandLabel = activeBrand === 'ALL' ? 'All Brands' : activeBrand;
+
+  return (
+    <div className="app">
+      <Topbar fetchedAt={fetchedAt} data={data} keptCount={kept.length} excludedCount={excludedRows.length} />
+
+      <TabBar brands={brands} active={activeBrand} setActive={setActiveBrand} kept={kept} />
+
+      <AccountRouting all={all} kept={kept} excludedRows={excludedRows} />
+
+      <FilterBar filters={filters} setFilters={setFilters} distinct={distinct} onReset={resetFilters} />
+
+      {activeBrand === 'ALL' && <BrandOverview kept={applyFilters(kept)} />}
+
+      {/* WHOLESALE / EXTERNAL */}
+      <WholesaleView rows={wholesale} brandLabel={brandLabel} />
+
+      {/* INTERNAL STORES */}
+      <InternalView rows={internal} brandLabel={brandLabel} />
+
+      <footer style={{ marginTop: 60, padding: '20px 0', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+        <span>Medfarms · Michigan · Sales Intelligence</span>
+        <span>Auto-refresh every 60s</span>
+      </footer>
+    </div>
+  );
+}
+
+// --- Wholesale view ---------------------------------------------------------
+function WholesaleView({ rows, brandLabel }) {
+  const k = useMemo(() => kpis(rows), [rows]);
+  const timeSeries = useMemo(() => series(rows), [rows]);
+  const topProducts = useMemo(() => groupSum(rows, 'product_name'), [rows]);
+  const topBuyers = useMemo(() => groupSum(rows, 'buyer_name'), [rows]);
+  const byRep = useMemo(() => groupSum(rows, 'sales_rep', 20), [rows]);
+  const byCategory = useMemo(() => groupSum(rows, 'product_category', 8), [rows]);
+  const byState = useMemo(() => groupSum(rows, 'buyer_state', 15), [rows]);
+  const paymentMix = useMemo(() => {
+    const m = {}; rows.forEach(r => { const key = r.payment_status || 'Unknown'; m[key] = (m[key] || 0) + r._revenue; });
+    return Object.entries(m).map(([name, revenue]) => ({ name, revenue })).sort((a, b) => b.revenue - a.revenue);
+  }, [rows]);
+  const months = useMemo(() => monthly(rows), [rows]);
+  const invoices = useMemo(() => buildInvoices(rows), [rows]);
+
+  return (
+    <>
+      <div className="section-header" style={{ marginBottom: 14 }}>
+        <h2 className="section-title">Wholesale <em>· external accounts</em></h2>
+        <span className="section-meta">{brandLabel}</span>
+      </div>
+
+      <div className="kpi-grid">
+        <Kpi label="Net Revenue" value={fmtMoney(k.revenue)} sub={`${fmtNum(k.lineItems)} line items`} accent />
+        <Kpi label="Orders / Invoices" value={fmtNum(k.orders)} sub={`${fmtMoney(k.avgOrder)} avg order`} />
+        <Kpi label="Units Sold" value={fmtNum(Math.round(k.units))} sub={`${k.avgUnitsPerOrder.toFixed(1)} units / order`} />
+        <Kpi label="MOM Change" value={k.momChange == null ? '—' : (k.momChange >= 0 ? '+' : '') + k.momChange.toFixed(1) + '%'} sub={k.momLabel} />
+      </div>
+      <div className="kpi-grid">
+        <Kpi label="Active Buyers" value={fmtNum(k.buyers)} sub="unique external accounts" />
+        <Kpi label="Markets" value={fmtNum(k.states)} sub="states with sales" />
+        <Kpi label="Gross Sales" value={fmtMoney(k.gross)} sub="before discounts" />
+        <Kpi label="Discounts" value={fmtMoney(k.discounts)} sub={k.gross ? ((k.discounts / k.gross) * 100).toFixed(1) + '% of gross' : '—'} />
+      </div>
+
+      <section className="section">
+        <div className="section-header"><h2 className="section-title">Revenue <em>over time</em></h2><span className="section-meta">{timeSeries.length} days</span></div>
+        <div className="card" style={{ height: 300 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={timeSeries} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e8d838" stopOpacity={0.4} /><stop offset="100%" stopColor="#e8d838" stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid stroke="#33371f" strokeDasharray="2 2" vertical={false} />
+              <XAxis dataKey="date" stroke="#6b6e58" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={{ stroke: '#33371f' }} />
+              <YAxis stroke="#6b6e58" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} tickFormatter={fmtMoney} />
+              <Tooltip contentStyle={{ background: '#1c1e12', border: '1px solid #33371f', borderRadius: 4, fontSize: 12 }} labelStyle={{ color: '#a8ab92', fontFamily: 'JetBrains Mono', fontSize: 11 }} formatter={(v, n) => n === 'revenue' ? [fmtMoneyFull(v), 'Revenue'] : [fmtNum(v), n]} />
+              <Area type="monotone" dataKey="revenue" stroke="#e8d838" strokeWidth={2} fill="url(#rev)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="section"><div className="grid-half">
+        <RankCard title="Top products" data={topProducts} />
+        <RankCard title="Top buyers" data={topBuyers} />
+      </div></section>
+
+      <section className="section"><div className="grid-2">
+        <div>
+          <div className="section-header"><h2 className="section-title">Sales <em>by rep</em></h2><span className="section-meta">{byRep.length} reps</span></div>
+          <div className="card" style={{ height: 360 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byRep} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                <CartesianGrid stroke="#33371f" strokeDasharray="2 2" horizontal={false} />
+                <XAxis type="number" stroke="#6b6e58" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={fmtMoney} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" stroke="#6b6e58" tick={{ fontSize: 11 }} width={130} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: '#1c1e12', border: '1px solid #33371f', borderRadius: 4, fontSize: 12 }} formatter={(v) => [fmtMoneyFull(v), 'Revenue']} />
+                <Bar dataKey="revenue" fill="#e8d838" radius={[0, 2, 2, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div>
+          <div className="section-header"><h2 className="section-title">By <em>category</em></h2><span className="section-meta">mix</span></div>
+          <div className="card" style={{ height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={byCategory} dataKey="revenue" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={110} paddingAngle={2} stroke="#13140d" strokeWidth={2}>
+                  {byCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#1c1e12', border: '1px solid #33371f', borderRadius: 4, fontSize: 12 }} formatter={(v) => fmtMoneyFull(v)} />
+                <Legend verticalAlign="bottom" iconType="square" wrapperStyle={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#a8ab92' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div></section>
+
+      <section className="section"><div className="grid-half">
+        <div><div className="section-header"><h2 className="section-title">By <em>state</em></h2><span className="section-meta">geography</span></div><div className="card"><RankList data={byState} /></div></div>
+        <div><div className="section-header"><h2 className="section-title">Payment <em>status</em></h2><span className="section-meta">AR mix</span></div><div className="card"><RankList data={paymentMix} /></div></div>
+      </div></section>
+
+      <MonthlyTable months={months} />
+      <InvoiceTable invoices={invoices} title="Invoices" accent="var(--accent)" />
+    </>
+  );
+}
+
+// --- Internal stores view ---------------------------------------------------
+function InternalView({ rows, brandLabel }) {
+  const k = useMemo(() => kpis(rows), [rows]);
+  const byStore = useMemo(() => {
+    const m = {};
+    rows.forEach(r => {
+      const key = r.buyer_name || '—';
+      if (!m[key]) m[key] = { name: key, revenue: 0, units: 0, orders: new Set() };
+      m[key].revenue += r._revenue; m[key].units += r._units;
+      if (r._invoiceId) m[key].orders.add(r._invoiceId);
+    });
+    return Object.values(m).map(s => ({ ...s, orders: s.orders.size })).sort((a, b) => b.revenue - a.revenue);
+  }, [rows]);
+  const invoices = useMemo(() => buildInvoices(rows), [rows]);
+
+  return (
+    <div className="internal-zone">
+      <span className="internal-badge">Internal Stores · own segment</span>
+      <div className="section-header" style={{ marginBottom: 16 }}>
+        <h2 className="section-title">Internal <em>store sales</em></h2>
+        <span className="section-meta">{brandLabel} · not in wholesale totals</span>
+      </div>
+
+      <div className="kpi-grid">
+        <Kpi label="Internal Revenue" value={fmtMoney(k.revenue)} sub={`${fmtNum(k.lineItems)} line items`} accent />
+        <Kpi label="Internal Orders" value={fmtNum(k.orders)} sub={`${fmtMoney(k.avgOrder)} avg order`} />
+        <Kpi label="Units Moved" value={fmtNum(Math.round(k.units))} sub={`${k.avgUnitsPerOrder.toFixed(1)} units / order`} />
+        <Kpi label="Stores Active" value={fmtNum(byStore.length)} sub="of 6 internal stores" />
+      </div>
+
+      <section className="section">
+        <div className="section-header"><h2 className="section-title">By <em>store</em></h2><span className="section-meta">{byStore.length} stores</span></div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table className="data-table">
+            <thead><tr><th>Store</th><th className="num">Orders</th><th className="num">Units</th><th className="num">Revenue</th></tr></thead>
+            <tbody>
+              {byStore.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-faint)', padding: 28 }}>No internal store activity in this view</td></tr>}
+              {byStore.map((s, i) => (
+                <tr key={i}>
+                  <td style={{ color: 'var(--internal)' }}>{s.name}</td>
+                  <td className="num dim">{fmtNum(s.orders)}</td>
+                  <td className="num">{fmtNum(Math.round(s.units))}</td>
+                  <td className="num"><strong>{fmtMoneyFull(s.revenue)}</strong></td>
+                </tr>
+              ))}
+              {byStore.length > 0 && (
+                <tr style={{ background: 'var(--bg-elev-2)', fontWeight: 600 }}>
+                  <td>TOTAL</td>
+                  <td className="num dim">{fmtNum(byStore.reduce((s, x) => s + x.orders, 0))}</td>
+                  <td className="num">{fmtNum(Math.round(byStore.reduce((s, x) => s + x.units, 0)))}</td>
+                  <td className="num" style={{ color: 'var(--internal)' }}>{fmtMoneyFull(byStore.reduce((s, x) => s + x.revenue, 0))}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <InvoiceTable invoices={invoices} title="Internal invoices" accent="var(--internal)" />
+    </div>
+  );
+}
+
+// --- All-brands overview ----------------------------------------------------
+function BrandOverview({ kept }) {
+  const byBrand = useMemo(() => {
+    const m = {};
+    kept.forEach(r => {
+      const b = r.brand;
+      if (!m[b]) m[b] = { name: b, wholesale: 0, internal: 0, units: 0, orders: new Set() };
+      if (r._bucket === 'internal') m[b].internal += r._revenue; else m[b].wholesale += r._revenue;
+      m[b].units += r._units;
+      if (r._invoiceId) m[b].orders.add(r._invoiceId);
+    });
+    return Object.values(m).map(b => ({ ...b, orders: b.orders.size, total: b.wholesale + b.internal }))
+      .sort((a, b) => b.total - a.total);
+  }, [kept]);
+
+  if (byBrand.length <= 1) return null; // nothing to compare until multiple brands are pulled
+
+  return (
+    <section className="section">
+      <div className="section-header"><h2 className="section-title">Brand <em>comparison</em></h2><span className="section-meta">{byBrand.length} brands</span></div>
+      <div className="grid-2">
+        <div className="card" style={{ height: 340 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={byBrand} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+              <CartesianGrid stroke="#33371f" strokeDasharray="2 2" horizontal={false} />
+              <XAxis type="number" stroke="#6b6e58" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={fmtMoney} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" stroke="#6b6e58" tick={{ fontSize: 11 }} width={150} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: '#1c1e12', border: '1px solid #33371f', borderRadius: 4, fontSize: 12 }} formatter={(v, n) => [fmtMoneyFull(v), n === 'wholesale' ? 'Wholesale' : 'Internal']} />
+              <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#a8ab92' }} />
+              <Bar dataKey="wholesale" stackId="a" fill="#e8d838" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="internal" stackId="a" fill="#7fc8e0" radius={[0, 2, 2, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table className="data-table">
+            <thead><tr><th>Brand</th><th className="num">Wholesale</th><th className="num">Internal</th><th className="num">Total</th></tr></thead>
+            <tbody>
+              {byBrand.map((b, i) => (
+                <tr key={i}>
+                  <td>{b.name}</td>
+                  <td className="num">{fmtMoney(b.wholesale)}</td>
+                  <td className="num" style={{ color: 'var(--internal)' }}>{fmtMoney(b.internal)}</td>
+                  <td className="num"><strong>{fmtMoney(b.total)}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --- Shared compute ---------------------------------------------------------
+function kpis(rows) {
+  const revenue = rows.reduce((s, r) => s + r._revenue, 0);
+  const gross = rows.reduce((s, r) => s + r._gross, 0);
+  const discounts = rows.reduce((s, r) => s + r._discount, 0);
+  const units = rows.reduce((s, r) => s + r._units, 0);
+  const orderIds = new Set(rows.map(r => r._invoiceId).filter(Boolean));
+  const buyers = new Set(rows.map(r => r.buyer_name).filter(Boolean));
+  const states = new Set(rows.map(r => r.buyer_state).filter(Boolean));
+  const byMonth = {};
+  rows.forEach(r => { if (!r._date) return; const ym = `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}`; byMonth[ym] = (byMonth[ym] || 0) + r._revenue; });
+  const mk = Object.keys(byMonth).sort();
+  let momChange = null, momLabel = '—';
+  if (mk.length >= 2) { const a = byMonth[mk[mk.length - 1]], b = byMonth[mk[mk.length - 2]]; if (b) { momChange = ((a - b) / b) * 100; momLabel = mk[mk.length - 1] + ' vs ' + mk[mk.length - 2]; } }
+  return { revenue, gross, discounts, units, orders: orderIds.size, buyers: buyers.size, states: states.size,
+    avgOrder: orderIds.size ? revenue / orderIds.size : 0, avgUnitsPerOrder: orderIds.size ? units / orderIds.size : 0,
+    momChange, momLabel, lineItems: rows.length };
+}
+function series(rows) {
+  const m = {};
+  rows.forEach(r => { if (!r._date) return; const key = ymdStr(r._date); if (!m[key]) m[key] = { date: key, revenue: 0 }; m[key].revenue += r._revenue; });
+  return Object.values(m).sort((a, b) => a.date.localeCompare(b.date));
+}
+function groupSum(rows, key, n = 10) {
+  const m = {};
+  rows.forEach(r => { const k = r[key]; if (!k) return; if (!m[k]) m[k] = { name: k, revenue: 0, units: 0 }; m[k].revenue += r._revenue; m[k].units += r._units; });
+  return Object.values(m).sort((a, b) => b.revenue - a.revenue).slice(0, n);
+}
+function monthly(rows) {
+  const m = {};
+  rows.forEach(r => {
+    if (!r._date) return;
+    const key = `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}`;
+    if (!m[key]) m[key] = { key, monthName: r._date.toLocaleString('en-US', { month: 'long', year: 'numeric' }), units: 0, gross: 0, discounts: 0, net: 0 };
+    m[key].units += r._units; m[key].gross += r._gross; m[key].discounts += r._discount; m[key].net += r._revenue;
+  });
+  const sorted = Object.values(m).sort((a, b) => a.key.localeCompare(b.key));
+  return sorted.map((x, i) => { const prev = i > 0 ? sorted[i - 1].net : 0; const mom = prev ? ((x.net - prev) / prev) * 100 : null; return { ...x, mom }; });
+}
+function buildInvoices(rows) {
+  const m = {};
+  rows.forEach(r => {
+    const id = r._invoiceId; if (!id) return;
+    if (!m[id]) m[id] = { id, invoice: r._invoice, date: r.order_date ? ymdStr(r._date) : '—', _t: r._date ? r._date.getTime() : 0,
+      buyer: r.buyer_name || '—', rep: r.sales_rep || '—', state: r.buyer_state || '—', status: r.payment_status || 'Unknown', brand: r.brand, lineItems: 0, units: 0, revenue: 0, discount: 0 };
+    m[id].lineItems += 1; m[id].units += r._units; m[id].revenue += r._revenue; m[id].discount += r._discount;
+  });
+  return Object.values(m).sort((a, b) => b._t - a._t);
+}
+
+// --- Presentational components ----------------------------------------------
+function MonthlyTable({ months }) {
+  if (!months.length) return null;
+  const tot = months.reduce((a, m) => ({ units: a.units + m.units, gross: a.gross + m.gross, discounts: a.discounts + m.discounts, net: a.net + m.net }), { units: 0, gross: 0, discounts: 0, net: 0 });
+  return (
+    <section className="section">
+      <div className="section-header"><h2 className="section-title">Monthly <em>breakdown</em></h2><span className="section-meta">{months.length} months</span></div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto' }}>
+        <table className="data-table">
+          <thead><tr><th>Month</th><th className="num">Units</th><th className="num">Gross</th><th className="num">Discounts</th><th className="num">Net Sales</th><th className="num">MOM ±</th></tr></thead>
+          <tbody>
+            {months.map((m, i) => (
+              <tr key={i}>
+                <td>{m.monthName}</td>
+                <td className="num">{fmtNum(Math.round(m.units))}</td>
+                <td className="num dim">{fmtMoneyFull(m.gross)}</td>
+                <td className="num dim">{fmtMoneyFull(m.discounts)}</td>
+                <td className="num"><strong>{fmtMoneyFull(m.net)}</strong></td>
+                <td className="num" style={{ color: m.mom == null ? 'var(--text-faint)' : m.mom >= 0 ? 'var(--accent)' : 'var(--rose)' }}>{m.mom == null ? '—' : (m.mom >= 0 ? '+' : '') + m.mom.toFixed(1) + '%'}</td>
+              </tr>
+            ))}
+            <tr style={{ background: 'var(--bg-elev-2)', fontWeight: 600 }}>
+              <td>TOTAL</td>
+              <td className="num">{fmtNum(Math.round(tot.units))}</td>
+              <td className="num dim">{fmtMoneyFull(tot.gross)}</td>
+              <td className="num dim">{fmtMoneyFull(tot.discounts)}</td>
+              <td className="num"><strong style={{ color: 'var(--accent)' }}>{fmtMoneyFull(tot.net)}</strong></td>
+              <td className="num dim">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div></div>
+    </section>
+  );
+}
+
+function InvoiceTable({ invoices, title, accent }) {
+  return (
+    <section className="section">
+      <div className="section-header"><h2 className="section-title">{title} <em>· one row per order</em></h2><span className="section-meta">{fmtNum(invoices.length)} invoices</span></div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto', maxHeight: 480 }}>
+        <table className="data-table">
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Buyer</th><th>Brand</th><th>Rep</th><th className="num">Lines</th><th className="num">Units</th><th className="num">Revenue</th><th>Payment</th></tr></thead>
+          <tbody>
+            {invoices.length === 0 && <tr><td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-faint)', padding: 28 }}>No invoices in this view</td></tr>}
+            {invoices.slice(0, 150).map((inv, i) => (
+              <tr key={i}>
+                <td className="font-mono" style={{ color: accent }}>{inv.invoice}</td>
+                <td className="dim font-mono">{inv.date}</td>
+                <td>{inv.buyer}</td>
+                <td className="dim">{inv.brand}</td>
+                <td className="dim">{inv.rep}</td>
+                <td className="num dim">{fmtNum(inv.lineItems)}</td>
+                <td className="num"><strong>{fmtNum(Math.round(inv.units))}</strong></td>
+                <td className="num">{fmtMoneyFull(inv.revenue)}</td>
+                <td><StatusPill status={inv.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {invoices.length > 150 && <div style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>Showing 150 of {fmtNum(invoices.length)} · narrow with filters</div>}
+      </div>
+    </section>
+  );
+}
+
+function Topbar({ fetchedAt, data, keptCount, excludedCount }) {
+  const ago = Math.floor((Date.now() - fetchedAt.getTime()) / 60000);
+  return (
+    <div className="topbar">
+      <div className="brand-mark">
+        <img src="logo.png" alt="" style={{ height: 46, width: 'auto', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
+        <div>
+          <h1 className="brand-name">Medfarms <em>· Multi-Brand</em></h1>
+          <div className="brand-tag">Michigan · 100 Shafer Processing · LeafLink</div>
+        </div>
+      </div>
+      <div className="topbar-meta">
+        <span><strong>{fmtNum(keptCount)}</strong> rows · <span style={{ color: 'var(--rose)' }}>{fmtNum(excludedCount)} excluded</span></span>
+        <span>·</span>
+        <span>Updated {ago < 1 ? 'just now' : ago + 'm ago'}</span>
+        <span className="pulse"></span>
+      </div>
+    </div>
+  );
+}
+
+function TabBar({ brands, active, setActive, kept }) {
+  const allRev = kept.filter(r => r._bucket === 'wholesale').reduce((s, r) => s + r._revenue, 0);
+  return (
+    <div className="tabbar">
+      <button className={'tab tab-all' + (active === 'ALL' ? ' active' : '')} onClick={() => setActive('ALL')}>
+        <span className="tab-name">All Brands</span>
+        <span className="tab-sub">{fmtMoney(allRev)} wholesale</span>
+      </button>
+      {brands.map(b => (
+        <button key={b.name} className={'tab' + (active === b.name ? ' active' : '')} onClick={() => setActive(b.name)}>
+          <span className="tab-name">{b.name}</span>
+          <span className="tab-sub">{fmtMoney(b.rev)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AccountRouting({ all, kept, excludedRows }) {
+  const summarize = (rows) => {
+    const m = {};
+    rows.forEach(r => { const b = r.buyer_name || '(blank)'; if (!m[b]) m[b] = { name: b, rev: 0, n: new Set() }; m[b].rev += r._revenue; if (r._invoiceId) m[b].n.add(r._invoiceId); });
+    return Object.values(m).map(x => ({ ...x, n: x.n.size })).sort((a, b) => b.rev - a.rev);
+  };
+  const excluded = summarize(excludedRows);
+  const internal = summarize(kept.filter(r => r._bucket === 'internal'));
+  // "Dispo - " accounts that landed in wholesale — likely candidates to reclassify.
+  const dispoInWholesale = summarize(kept.filter(r => r._bucket === 'wholesale' && /^dispo\s*-/i.test(r.buyer_name || '')));
+  const Row = ({ d, color }) => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 70px', gap: '2px 12px', padding: '3px 0' }}>
+      <span style={{ color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.name}>{d.name}</span>
+      <span className="num" style={{ textAlign: 'right' }}>{fmtMoney(d.rev)}</span>
+      <span className="num" style={{ textAlign: 'right', color: 'var(--text-faint)' }}>{d.n} ord</span>
+    </div>
+  );
+  return (
+    <details style={{ background: 'var(--bg-elev)', border: '1px solid var(--border)', borderRadius: 4, padding: '10px 16px', marginBottom: 24, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--text-dim)' }}>
+      <summary style={{ cursor: 'pointer', color: 'var(--accent)' }}>ACCOUNT ROUTING — verify which accounts go where (click to expand)</summary>
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+        <div>
+          <div style={{ color: 'var(--rose)', marginBottom: 6, fontWeight: 600 }}>EXCLUDED — removed from all totals ({excluded.length})</div>
+          {excluded.length === 0 ? <div style={{ color: 'var(--text-faint)' }}>none in data</div> : excluded.map((d, i) => <Row key={i} d={d} color="var(--rose)" />)}
+        </div>
+        <div>
+          <div style={{ color: 'var(--internal)', marginBottom: 6, fontWeight: 600 }}>INTERNAL STORES — own segment ({internal.length})</div>
+          {internal.length === 0 ? <div style={{ color: 'var(--text-faint)' }}>none in data</div> : internal.map((d, i) => <Row key={i} d={d} color="var(--internal)" />)}
+        </div>
+        <div>
+          <div style={{ color: 'var(--warm)', marginBottom: 6, fontWeight: 600 }}>"Dispo -" still in WHOLESALE — confirm? ({dispoInWholesale.length})</div>
+          {dispoInWholesale.length === 0 ? <div style={{ color: 'var(--text-faint)' }}>none</div> : dispoInWholesale.map((d, i) => <Row key={i} d={d} color="var(--warm)" />)}
+        </div>
+      </div>
+      <div style={{ marginTop: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
+        To reclassify, edit <span style={{ color: 'var(--accent)' }}>EXCLUDE_ACCOUNTS</span> / <span style={{ color: 'var(--accent)' }}>INTERNAL_STORES</span> at the top of this file. Matching is "name starts with", case-insensitive.
+      </div>
+    </details>
+  );
+}
+
+function FilterBar({ filters, setFilters, distinct, onReset }) {
+  const upd = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+  return (
+    <div className="filters">
+      <div className="filter-group"><label className="filter-label">From</label><input type="date" className="filter-input" value={filters.from} onChange={e => upd('from', e.target.value)} /></div>
+      <div className="filter-group"><label className="filter-label">To</label><input type="date" className="filter-input" value={filters.to} onChange={e => upd('to', e.target.value)} /></div>
+      <div className="filter-group"><label className="filter-label">Buyer</label><select className="filter-select" value={filters.buyer} onChange={e => upd('buyer', e.target.value)}><option value="">All</option>{distinct.buyers.map(b => <option key={b}>{b}</option>)}</select></div>
+      <div className="filter-group"><label className="filter-label">Sales Rep</label><select className="filter-select" value={filters.rep} onChange={e => upd('rep', e.target.value)}><option value="">All</option>{distinct.reps.map(b => <option key={b}>{b}</option>)}</select></div>
+      <div className="filter-group"><label className="filter-label">State</label><select className="filter-select" value={filters.state} onChange={e => upd('state', e.target.value)}><option value="">All</option>{distinct.states.map(b => <option key={b}>{b}</option>)}</select></div>
+      <div className="filter-group"><label className="filter-label">Payment</label><select className="filter-select" value={filters.status} onChange={e => upd('status', e.target.value)}><option value="">All</option>{distinct.statuses.map(b => <option key={b}>{b}</option>)}</select></div>
+      <div className="filter-group"><label className="filter-label">Search</label><input type="text" className="filter-input" placeholder="invoice / buyer / product…" value={filters.search} onChange={e => upd('search', e.target.value)} /></div>
+      <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
+        <label className="filter-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 'auto', paddingBottom: 9 }}>
+          <input type="checkbox" checked={filters.excludeSamples} onChange={e => upd('excludeSamples', e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
+          Exclude samples
+        </label>
+      </div>
+      <button className="filter-reset" onClick={onReset}>Reset</button>
+    </div>
+  );
+}
+
+function Kpi({ label, value, sub, accent }) {
+  return (<div className={'kpi' + (accent ? ' kpi-accent' : '')}><div className="kpi-label">{label}</div><div className="kpi-value tabular">{value}</div>{sub && <div className="kpi-sub">{sub}</div>}</div>);
+}
+function RankCard({ title, data }) {
+  return (<div><div className="section-header"><h2 className="section-title">{title.split(' ')[0]} <em>{title.split(' ').slice(1).join(' ')}</em></h2><span className="section-meta">top {data.length}</span></div><div className="card"><RankList data={data} /></div></div>);
+}
+function RankList({ data }) {
+  const max = Math.max(...data.map(d => d.revenue), 1);
+  return (<div className="rank-list">
+    {data.length === 0 && <div style={{ padding: 20, color: 'var(--text-faint)', textAlign: 'center', fontSize: 13 }}>No data</div>}
+    {data.map((d, i) => (<div key={i} className="rank-row"><div className="rank-num">{String(i + 1).padStart(2, '0')}</div><div className="rank-name" title={d.name}>{d.name}</div><div className="rank-value">{fmtMoneyFull(d.revenue)}</div><div className="rank-bar" style={{ width: `calc(${(d.revenue / max * 100).toFixed(1)}% - 80px)` }}></div></div>))}
+  </div>);
+}
+function StatusPill({ status }) {
+  if (!status) return <span className="dim">—</span>;
+  const s = status.toLowerCase();
+  const cls = (s.includes('paid') && !s.includes('unpaid')) || s.includes('complet') ? 'pill-completed' : s.includes('overdue') ? 'pill-overdue' : 'pill-pending';
+  return <span className={'pill ' + cls}>{status}</span>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
