@@ -92,6 +92,11 @@ BRANDS_ENDPOINTS = [e.strip() for e in os.getenv(
         "/api/v2/brands/",
     ])
 ).split(",") if e.strip()]
+
+# Resolve each line's brand from the product catalog (SKU -> brand). This splits
+# multi-brand orders to the correct brand per line. On by default; needs the
+# catalog pull (same endpoint as inventory).
+RESOLVE_BRANDS_FROM_CATALOG = os.getenv("LEAFLINK_RESOLVE_BRANDS_FROM_CATALOG", "1") != "0"
 # Real LeafLink product inventory fields (per API docs): available_inventory =
 # quantity minus reserved; quantity = total inventory level. Prefer available.
 INV_FIELDS = [f.strip() for f in os.getenv(
@@ -574,6 +579,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
     city_by_id = enrich.get("city_by_id", {}); city_by_name = enrich.get("city_by_name", {})
     inv = inv or {}
     inv_by_id = inv.get("by_id", {}); inv_by_sku = inv.get("by_sku", {})
+    inv_brand_by_id = inv.get("brand_by_id", {}); inv_brand_by_sku = inv.get("brand_by_sku", {})
     brand_map = brand_map or {}
     rows = []
     seller_ids, brand_ids_seen = set(), set()
@@ -653,11 +659,17 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
                 continue
             prod = _frozen_product(li)
             pname = prod.get("name") or _first(li, "product_name") or ""
+            _sku = (prod.get("sku") or "").strip()
+            _lpid = li.get("product")
+            _lpid = str(_lpid) if _lpid is not None else (str(prod.get("id")) if prod.get("id") is not None else "")
+            _cat_brand = inv_brand_by_sku.get(_sku) or inv_brand_by_id.get(_lpid) or ""
             _pbid = prod.get("brand")
             if isinstance(_pbid, dict):
                 _pbid = _pbid.get("id")
             _line_brand = brand_map.get(str(_pbid)) if _pbid is not None else ""
-            brand = (_line_brand or order_brand or _name_of(prod.get("brand"))
+            # Per-line catalog brand wins (splits multi-brand orders); order-level
+            # brand_ids is the fallback for products not found in the catalog.
+            brand = (_cat_brand or _line_brand or order_brand or _name_of(prod.get("brand"))
                      or _name_of(prod.get("brand_name")) or pname)
             qty = _amount(li.get("quantity")) or 0.0
             mult = _amount(li.get("unit_multiplier")) or 1.0
@@ -745,7 +757,7 @@ def _product_status(p):
     return "", None
 
 
-def fetch_inventory():
+def fetch_inventory(brand_map=None):
     """Best-effort current-inventory pull from the seller product catalog.
 
     Returns {"by_id": {product_id: qty}, "by_sku": {sku: qty}}. Any failure
@@ -754,6 +766,8 @@ def fetch_inventory():
     diagnostic so the field mapping can be confirmed on a real run.
     """
     inv_by_id, inv_by_sku = {}, {}
+    brand_by_id, brand_by_sku = {}, {}
+    brand_map = brand_map or {}
     catalog, catalog_seen = [], set()   # full brand-matched product list (incl. never-sold)
     # Prefer the company-scoped path (small, fast, exactly Medfarms' catalog),
     # then fall back to the broad /products/ list.
@@ -792,6 +806,18 @@ def fetch_inventory():
                 name = p.get("name") or ""
                 line = (p.get("product_line_name") or _name_of(p.get("product_line"))
                         or _name_of(p.get("category")) or "")
+                # SKU/id -> brand name. Prefer an embedded brand name/object; else
+                # resolve a brand id via brand_map. Done before any filter/continue.
+                _pb = p.get("brand")
+                _pbid = _pb.get("id") if isinstance(_pb, dict) else _pb
+                _pbname = _name_of(p.get("brand")) or _name_of(p.get("brand_name")) or ""
+                if not _pbname and _pbid is not None:
+                    _pbname = brand_map.get(str(_pbid), "")
+                if _pbname:
+                    if pid is not None:
+                        brand_by_id[str(pid)] = _pbname
+                    if sku:
+                        brand_by_sku[sku] = _pbname
                 if val is not None:
                     field_hits[f] = field_hits.get(f, 0) + 1
                     if pid is not None:
@@ -850,7 +876,8 @@ def fetch_inventory():
         print("  Inventory pull found nothing — column will show '—'. "
               "Set LEAFLINK_PRODUCTS_ENDPOINTS / LEAFLINK_INV_FIELDS once the "
               "right path + field are known.")
-    return {"by_id": inv_by_id, "by_sku": inv_by_sku, "catalog": catalog}
+    return {"by_id": inv_by_id, "by_sku": inv_by_sku, "catalog": catalog,
+            "brand_by_id": brand_by_id, "brand_by_sku": brand_by_sku}
 
 
 def load_existing():
@@ -898,13 +925,25 @@ def main():
 
     # Current inventory from the seller product catalog (best-effort, bounded).
     # OFF by default so it can never stall the orders backfill.
-    if PULL_INVENTORY:
-        print("Fetching current inventory from product catalog...")
-        inv = fetch_inventory()
+    print("Fetching brands for brand-name resolution...")
+    brand_map = fetch_brands()
+    for _kv in [x for x in os.getenv("LEAFLINK_BRAND_OVERRIDES", "").split(",") if ":" in x]:
+        _k, _v = _kv.split(":", 1); brand_map[_k.strip()] = _v.strip()
+    if brand_map:
+        print(f"Brands resolved: {len(brand_map)} | e.g. {list(brand_map.items())[:6]}")
     else:
-        print("Inventory pull SKIPPED (set LEAFLINK_PULL_INVENTORY=1 to enable). "
-              "Current Inv. column will show '—'.")
-        inv = {"by_id": {}, "by_sku": {}}
+        print("Brands resolved: 0 (set LEAFLINK_BRANDS_ENDPOINTS / LEAFLINK_BRAND_OVERRIDES)")
+
+    # Product catalog: needed for the SKU->brand map (splits multi-brand orders to
+    # the correct brand per line) and, when enabled, current inventory quantities.
+    if PULL_INVENTORY or RESOLVE_BRANDS_FROM_CATALOG:
+        print("Fetching product catalog (SKU->brand map"
+              + (" + current inventory" if PULL_INVENTORY else "") + ")...")
+        inv = fetch_inventory(brand_map)
+        print(f"Catalog brand map: {len(inv.get('brand_by_sku', {}))} sku / "
+              f"{len(inv.get('brand_by_id', {}))} id entries")
+    else:
+        inv = {"by_id": {}, "by_sku": {}, "brand_by_id": {}, "brand_by_sku": {}}
 
     if orders:
         first = orders[0]
@@ -916,13 +955,6 @@ def main():
             print("\n--- FIRST LINE ITEM ---")
             print(json.dumps(lis[0], default=str)[:2500])
         print("--- end sample ---\n")
-
-    print("Fetching brands for brand-name resolution...")
-    brand_map = fetch_brands()
-    if brand_map:
-        print(f"Brands resolved: {len(brand_map)} | e.g. {list(brand_map.items())[:6]}")
-    else:
-        print("Brands resolved: 0 (rows will be tagged 'Brand <id>' — set LEAFLINK_BRANDS_ENDPOINTS)")
 
     rows, st = flatten(orders, BRAND_FILTER, FROM_DATE, SELLER_ID, enrich, inv, brand_map)
 
