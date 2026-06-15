@@ -246,6 +246,16 @@ const classifyAccount = (buyerName) => {
 };
 /* ========================================================================= */
 
+/* BRAND GROUPING — your six named brands show individually; everything else
+   (the distributed third-party brands like Mitten Extracts / Hashish Boyz /
+   LayerCakeFarms, plus mixed-order leftovers and blanks) collapses into a
+   single "Other Brands" entry in the dropdown and tabs. Move a name out of
+   here to promote it to its own tab. */
+const PRIMARY_BRANDS = ["Hyman", "Chill Medicated", "Value Pak Distro", "100 Shafer", "Homiez", "Covert Cups"];
+const OTHER_BRANDS_LABEL = "Other Brands";
+const displayBrand = (raw) => PRIMARY_BRANDS.includes((raw || "").trim()) ? (raw || "").trim() : OTHER_BRANDS_LABEL;
+/* ========================================================================= */
+
 if (typeof Recharts === 'undefined') {
   document.getElementById('root').innerHTML =
     '<div style="max-width:600px;margin:80px auto;padding:32px;background:#1c1e12;border:1px solid #33371f;border-radius:4px;color:#f0f1e6;font-family:sans-serif">' +
@@ -352,7 +362,7 @@ function Dashboard({ data }) {
     return {
       ...r,
       _bucket: bucket,
-      brand: r.brand || '(no brand)',
+      brand: displayBrand(r.brand),
       _date: parseDate(r.order_date),
       _delivery: parseDate(r.delivery_date),
       _revenue: typeof r.revenue === 'number' ? r.revenue : parseMoney(r.revenue),
