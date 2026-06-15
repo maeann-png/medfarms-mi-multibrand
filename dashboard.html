@@ -13,6 +13,7 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script crossorigin src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <style>
@@ -297,17 +298,31 @@ function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const tryGz = async () => {
+      const r = await fetch('sales_data.json.gz?t=' + Date.now());
+      if (!r.ok) throw new Error('no gz');
+      const buf = new Uint8Array(await r.arrayBuffer());
+      let text;
+      try {
+        // Normal case: GitHub serves the raw gzip bytes; inflate them.
+        text = pako.inflate(buf, { to: 'string' });
+      } catch (e) {
+        // Edge case: a CDN already decoded it (Content-Encoding: gzip) → it's plain text.
+        text = new TextDecoder().decode(buf);
+      }
+      return JSON.parse(text);
+    };
+    const tryPlain = async (name) => {
+      const r = await fetch(name + '?t=' + Date.now());
+      if (!r.ok) throw new Error('no ' + name);
+      return r.json();
+    };
     const load = () => {
-      // Tries the live file first, then the trimmed preview file.
-      fetch('sales_data.json?t=' + Date.now())
-        .then(r => r.ok ? r.json() : Promise.reject())
+      tryGz()
+        .catch(() => tryPlain('sales_data.json'))
+        .catch(() => tryPlain('sales_data.preview.json'))
         .then(setData)
-        .catch(() => {
-          fetch('sales_data.preview.json?t=' + Date.now())
-            .then(r => { if (!r.ok) throw new Error('Could not load sales_data.json'); return r.json(); })
-            .then(setData)
-            .catch(e => setError(e.message));
-        });
+        .catch(() => setError('Could not load sales_data.json.gz'));
     };
     load();
     const id = setInterval(load, 60000);
