@@ -428,7 +428,8 @@ function Dashboard({ data }) {
 
       <AccountRouting all={all} kept={kept} excludedRows={excludedRows} />
 
-      <FilterBar filters={filters} setFilters={setFilters} distinct={distinct} onReset={resetFilters} />
+      <FilterBar filters={filters} setFilters={setFilters} distinct={distinct} onReset={resetFilters}
+        brands={brands} activeBrand={activeBrand} setActiveBrand={setActiveBrand} />
 
       {activeBrand === 'ALL' && <BrandOverview kept={applyFilters(kept)} />}
 
@@ -859,10 +860,17 @@ function AccountRouting({ all, kept, excludedRows }) {
   );
 }
 
-function FilterBar({ filters, setFilters, distinct, onReset }) {
+function FilterBar({ filters, setFilters, distinct, onReset, brands, activeBrand, setActiveBrand }) {
   const upd = (k, v) => setFilters(f => ({ ...f, [k]: v }));
   return (
     <div className="filters">
+      <div className="filter-group" style={{ minWidth: 200 }}>
+        <label className="filter-label">Brand</label>
+        <select className="filter-select" value={activeBrand} onChange={e => setActiveBrand(e.target.value)}>
+          <option value="ALL">All Brands</option>
+          {(brands || []).map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+        </select>
+      </div>
       <div className="filter-group"><label className="filter-label">From</label><input type="date" className="filter-input" value={filters.from} onChange={e => upd('from', e.target.value)} /></div>
       <div className="filter-group"><label className="filter-label">To</label><input type="date" className="filter-input" value={filters.to} onChange={e => upd('to', e.target.value)} /></div>
       <div className="filter-group"><label className="filter-label">Buyer</label><select className="filter-select" value={filters.buyer} onChange={e => upd('buyer', e.target.value)}><option value="">All</option>{distinct.buyers.map(b => <option key={b}>{b}</option>)}</select></div>
