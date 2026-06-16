@@ -553,6 +553,7 @@ function Dashboard({
     state: '',
     status: '',
     search: '',
+    invoice: '',
     excludeSamples: false
   });
 
@@ -670,6 +671,7 @@ function Dashboard({
     if (filters.rep && r.sales_rep !== filters.rep) return false;
     if (filters.state && r.buyer_state !== filters.state) return false;
     if (filters.status && r.payment_status !== filters.status) return false;
+    if (filters.invoice && r._invoiceId !== filters.invoice) return false;
     if (filters.excludeSamples && r._isSample) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
@@ -722,10 +724,16 @@ function Dashboard({
     state: '',
     status: '',
     search: '',
+    invoice: '',
     excludeSamples: false
   });
   const fetchedAt = new Date(data.fetched_at);
   const brandLabel = activeBrand === 'ALL' ? 'All Brands' : activeBrand === OTHER_BRANDS_LABEL && otherSub ? 'Other Brands › ' + otherSub : activeBrand;
+  const invoiceLabel = filters.invoice ? (kept.find(r => r._invoiceId === filters.invoice) || {})._invoice || filters.invoice : '';
+  const pickInvoice = id => setFilters(f => ({
+    ...f,
+    invoice: f.invoice === id ? '' : id
+  }));
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
   }, /*#__PURE__*/React.createElement(Topbar, {
@@ -762,10 +770,51 @@ function Dashboard({
     setScope: setScope
   }), activeBrand === 'ALL' && scope !== 'internal' && /*#__PURE__*/React.createElement(BrandOverview, {
     kept: applyFilters(kept)
-  }), /*#__PURE__*/React.createElement(WholesaleView, {
+  }), filters.invoice && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 16,
+      padding: '13px 18px',
+      marginBottom: 20,
+      background: 'var(--bg-elev)',
+      border: '1px solid var(--accent)',
+      borderRadius: 'var(--radius, 8px)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'JetBrains Mono',
+      fontSize: 12,
+      color: 'var(--text-dim)'
+    }
+  }, "Focused on invoice ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, invoiceLabel), " \xB7 every section below shows only this order"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFilters(f => ({
+      ...f,
+      invoice: ''
+    })),
+    style: {
+      background: 'transparent',
+      border: '1px solid var(--accent)',
+      color: 'var(--accent)',
+      padding: '6px 14px',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em'
+    }
+  }, "Clear")), /*#__PURE__*/React.createElement(WholesaleView, {
     rows: scopeRows,
     brandLabel: brandLabel,
-    heading: scopeHeading
+    heading: scopeHeading,
+    activeInvoice: filters.invoice,
+    onPickInvoice: pickInvoice
   }), /*#__PURE__*/React.createElement(InventorySection, {
     inventory: data.inventory,
     activeBrand: activeBrand,
@@ -791,7 +840,9 @@ function Dashboard({
 function WholesaleView({
   rows,
   brandLabel,
-  heading = 'External'
+  heading = 'External',
+  activeInvoice,
+  onPickInvoice
 }) {
   const k = useMemo(() => kpis(rows), [rows]);
   const timeSeries = useMemo(() => series(rows), [rows]);
@@ -943,7 +994,9 @@ function WholesaleView({
   }))))), /*#__PURE__*/React.createElement(InvoiceTable, {
     invoices: invoices,
     title: "Invoices",
-    accent: "var(--accent)"
+    accent: "var(--accent)",
+    activeInvoice: activeInvoice,
+    onPickInvoice: onPickInvoice
   }), /*#__PURE__*/React.createElement(ProductBreakdown, {
     rows: rows,
     showBrand: brandLabel === 'All Brands'
@@ -1584,21 +1637,17 @@ function MonthlyTable({
 function InvoiceTable({
   invoices,
   title,
-  accent
+  accent,
+  activeInvoice,
+  onPickInvoice
 }) {
-  const [open, setOpen] = useState(() => new Set());
-  const toggle = id => setOpen(prev => {
-    const n = new Set(prev);
-    n.has(id) ? n.delete(id) : n.add(id);
-    return n;
-  });
   return /*#__PURE__*/React.createElement("section", {
     className: "section"
   }, /*#__PURE__*/React.createElement("div", {
     className: "section-header"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "section-title"
-  }, title, " ", /*#__PURE__*/React.createElement("em", null, "\xB7 click a row for line items")), /*#__PURE__*/React.createElement("span", {
+  }, title, " ", /*#__PURE__*/React.createElement("em", null, "\xB7 click a row to focus every section on that order")), /*#__PURE__*/React.createElement("span", {
     className: "section-meta"
   }, fmtNum(invoices.length), " invoices")), /*#__PURE__*/React.createElement("div", {
     className: "card",
@@ -1613,42 +1662,31 @@ function InvoiceTable({
     }
   }, /*#__PURE__*/React.createElement("table", {
     className: "data-table"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
-    style: {
-      width: 26
-    }
-  }), /*#__PURE__*/React.createElement("th", null, "Invoice #"), /*#__PURE__*/React.createElement("th", null, "Date"), /*#__PURE__*/React.createElement("th", null, "Buyer"), /*#__PURE__*/React.createElement("th", null, "Brand"), /*#__PURE__*/React.createElement("th", null, "Rep"), /*#__PURE__*/React.createElement("th", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Invoice #"), /*#__PURE__*/React.createElement("th", null, "Date"), /*#__PURE__*/React.createElement("th", null, "Buyer"), /*#__PURE__*/React.createElement("th", null, "Brand"), /*#__PURE__*/React.createElement("th", null, "Rep"), /*#__PURE__*/React.createElement("th", {
     className: "num"
   }, "Lines"), /*#__PURE__*/React.createElement("th", {
     className: "num"
   }, "Units"), /*#__PURE__*/React.createElement("th", {
     className: "num"
   }, "Revenue"), /*#__PURE__*/React.createElement("th", null, "Payment"))), /*#__PURE__*/React.createElement("tbody", null, invoices.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-    colSpan: "10",
+    colSpan: "9",
     style: {
       textAlign: 'center',
       color: 'var(--text-faint)',
       padding: 28
     }
   }, "No invoices in this view")), invoices.slice(0, 150).map((inv, i) => {
-    const isOpen = open.has(inv.id);
-    return /*#__PURE__*/React.createElement(React.Fragment, {
-      key: inv.id || i
-    }, /*#__PURE__*/React.createElement("tr", {
-      onClick: () => toggle(inv.id),
+    const active = !!activeInvoice && inv.id === activeInvoice;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: inv.id || i,
+      onClick: () => onPickInvoice && onPickInvoice(inv.id),
       style: {
-        cursor: 'pointer',
-        background: isOpen ? 'var(--bg-elev-2)' : undefined
+        cursor: onPickInvoice ? 'pointer' : 'default',
+        background: active ? 'var(--bg-elev-2)' : undefined,
+        boxShadow: active ? `inset 3px 0 0 ${accent}` : undefined
       },
-      title: "Click to see this order's products"
+      title: onPickInvoice ? 'Click to focus the whole dashboard on this order — click again to clear' : ''
     }, /*#__PURE__*/React.createElement("td", {
-      style: {
-        color: accent,
-        fontFamily: 'JetBrains Mono',
-        textAlign: 'center',
-        userSelect: 'none'
-      }
-    }, isOpen ? '▾' : '▸'), /*#__PURE__*/React.createElement("td", {
       className: "font-mono",
       style: {
         color: accent
@@ -1667,17 +1705,7 @@ function InvoiceTable({
       className: "num"
     }, fmtMoneyFull(inv.revenue)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(StatusPill, {
       status: inv.status
-    }))), isOpen && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-      colSpan: "10",
-      style: {
-        padding: 0,
-        background: 'var(--bg-elev-2)',
-        borderBottom: '1px solid var(--border)'
-      }
-    }, /*#__PURE__*/React.createElement(InvoiceLines, {
-      inv: inv,
-      accent: accent
-    }))));
+    })));
   })))), invoices.length > 150 && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '12px 16px',
@@ -1688,88 +1716,6 @@ function InvoiceTable({
       borderTop: '1px solid var(--border)'
     }
   }, "Showing 150 of ", fmtNum(invoices.length), " \xB7 narrow with filters")));
-}
-function InvoiceLines({
-  inv,
-  accent
-}) {
-  const lines = inv.lines || [];
-  const meta = (label, value) => /*#__PURE__*/React.createElement("span", {
-    style: {
-      whiteSpace: 'nowrap'
-    }
-  }, label, " \xB7 ", /*#__PURE__*/React.createElement("strong", {
-    style: {
-      color: 'var(--text)'
-    }
-  }, value));
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      borderLeft: `2px solid ${accent}`,
-      margin: '6px 16px 14px 38px',
-      paddingLeft: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 18,
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      margin: '10px 0 12px',
-      fontFamily: 'JetBrains Mono',
-      fontSize: 11,
-      color: 'var(--text-dim)'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 6
-    }
-  }, "PAYMENT ", /*#__PURE__*/React.createElement(StatusPill, {
-    status: inv.status
-  })), inv.buyer && inv.buyer !== '—' && meta('BUYER', inv.buyer), inv.rep && inv.rep !== '—' && meta('REP', inv.rep), inv.state && inv.state !== '—' && meta('STATE', inv.state), inv.discount > 0 && meta('DISCOUNT', fmtMoneyFull(inv.discount))), /*#__PURE__*/React.createElement("table", {
-    className: "data-table",
-    style: {
-      background: 'transparent'
-    }
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Product"), /*#__PURE__*/React.createElement("th", null, "Line"), /*#__PURE__*/React.createElement("th", {
-    className: "num"
-  }, "Units"), /*#__PURE__*/React.createElement("th", {
-    className: "num"
-  }, "Unit $"), /*#__PURE__*/React.createElement("th", {
-    className: "num"
-  }, "Revenue"))), /*#__PURE__*/React.createElement("tbody", null, lines.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-    colSpan: "5",
-    style: {
-      color: 'var(--text-faint)',
-      padding: 16
-    }
-  }, "No line items")), lines.map((L, j) => /*#__PURE__*/React.createElement("tr", {
-    key: j
-  }, /*#__PURE__*/React.createElement("td", null, L.name), /*#__PURE__*/React.createElement("td", {
-    className: "dim"
-  }, L.line), /*#__PURE__*/React.createElement("td", {
-    className: "num"
-  }, fmtNum(Math.round(L.units))), /*#__PURE__*/React.createElement("td", {
-    className: "num dim"
-  }, fmtMoneyFull(L.unitPrice)), /*#__PURE__*/React.createElement("td", {
-    className: "num"
-  }, /*#__PURE__*/React.createElement("strong", null, fmtMoneyFull(L.revenue))))), lines.length > 0 && /*#__PURE__*/React.createElement("tr", {
-    style: {
-      fontWeight: 600
-    }
-  }, /*#__PURE__*/React.createElement("td", null, "Total"), /*#__PURE__*/React.createElement("td", {
-    className: "dim"
-  }, lines.length, " product", lines.length === 1 ? '' : 's'), /*#__PURE__*/React.createElement("td", {
-    className: "num"
-  }, fmtNum(Math.round(inv.units))), /*#__PURE__*/React.createElement("td", null), /*#__PURE__*/React.createElement("td", {
-    className: "num"
-  }, /*#__PURE__*/React.createElement("strong", {
-    style: {
-      color: accent
-    }
-  }, fmtMoneyFull(inv.revenue)))))));
 }
 function Topbar({
   fetchedAt,
