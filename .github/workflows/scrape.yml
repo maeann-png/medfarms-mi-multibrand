@@ -34,6 +34,7 @@ jobs:
           LEAFLINK_BRAND: ''
           LEAFLINK_FROM_DATE: '2020-01-01'
           LEAFLINK_EXCLUDE_STATUSES: 'Cancelled,Rejected'
+          LEAFLINK_PULL_INVENTORY: '1'
         run: python scraper.py
 
       - name: Commit updated data
