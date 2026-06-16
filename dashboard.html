@@ -302,11 +302,12 @@ const {
 /* ===========================================================================
    ACCOUNT ROUTING  —  EDIT THIS BLOCK TO RECLASSIFY ACCOUNTS
    ---------------------------------------------------------------------------
-   Matching is "buyer name starts with" (case-insensitive), so a base entry
-   like "Dispo - Romeo" also catches "Dispo - Romeo MED", etc.
-   EXCLUDE is checked first, then INTERNAL, otherwise the account is WHOLESALE.
+   Excluded accounts match the buyer name EXACTLY (case-insensitive), so "GNO"
+   removes only the "GNO" account and NOT "GNO Enterprises - Backpack Boyz - Monroe".
+   Internal stores match by "starts with", so "Dispo - Romeo" also catches
+   "Dispo - Romeo MED", etc. EXCLUDE is checked first, then INTERNAL, otherwise WHOLESALE.
    =========================================================================== */
-const EXCLUDE_ACCOUNTS = ["Chill CBD Ecommerce", "Dispo Ace Production", "GNO" // matches "GNO Enterprises - Backpack Boyz - Monroe"
+const EXCLUDE_ACCOUNTS = ["Chill CBD Ecommerce", "Dispo Ace Production", "GNO" // exact: does NOT remove "GNO Enterprises - Backpack Boyz - Monroe"
 ];
 const INTERNAL_STORES = ["Dispo - Bay City North",
 // + "... MED"
@@ -318,7 +319,7 @@ const INTERNAL_STORES = ["Dispo - Bay City North",
 const classifyAccount = buyerName => {
   const n = String(buyerName || '').trim().toLowerCase();
   if (!n) return 'wholesale';
-  for (const e of EXCLUDE_ACCOUNTS) if (n.startsWith(e.toLowerCase())) return 'excluded';
+  for (const e of EXCLUDE_ACCOUNTS) if (n === e.toLowerCase()) return 'excluded';
   for (const s of INTERNAL_STORES) if (n.startsWith(s.toLowerCase())) return 'internal';
   return 'wholesale';
 };
