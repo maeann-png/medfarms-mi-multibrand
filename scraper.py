@@ -45,6 +45,13 @@ API_KEY = os.getenv("LEAFLINK_API_KEY", "")
 BRAND_FILTER = os.getenv("LEAFLINK_BRAND", "")   # "" = ALL brands on the account
 INCLUDE_CHILDREN = os.getenv("LEAFLINK_INCLUDE_CHILDREN", "line_items")
 
+# This is a Michigan-only LeafLink account, so every buyer is in MI. Some buyer
+# records have a mistyped or blank state (e.g. "Nirvana Center - Escanaba" shows
+# "NM"), which clutters the dashboard's state filter. When HOME_STATE is set,
+# every buyer_state is coerced to it; anomalies are still logged so real
+# data-entry issues stay visible. Set LEAFLINK_HOME_STATE="" to disable.
+HOME_STATE = os.getenv("LEAFLINK_HOME_STATE", "MI").strip()
+
 # Keep only orders on/after this date (matched against created_on). Blank = no floor.
 # Set low to pull ALL historical data from the start (MI adult-use began Dec 2019).
 FROM_DATE = os.getenv("LEAFLINK_FROM_DATE", "2020-01-01")
@@ -609,6 +616,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
     matched = total_lines = skipped_old = skipped_company = skipped_status = 0
     name_fallback = 0
     rep_orders = 0
+    state_fixed, state_blank_filled = {}, 0
     recon_order_total = recon_net_total = recon_gross_total = 0.0
     brand_q = (brand_q or "").strip().lower()
     from_date = (from_date or "").strip()
@@ -655,6 +663,14 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
         _state = state_by_id.get(_cid) or state_by_name.get(_cnm) or ""
         _lic = lic_by_id.get(_cid) or lic_by_name.get(_cnm) or ""
         _city = city_by_id.get(_cid) or city_by_name.get(_cnm) or ""
+        if HOME_STATE:
+            _raw_state = (_state or "").strip()
+            if _raw_state.upper() != HOME_STATE.upper():
+                if _raw_state:
+                    state_fixed[_raw_state.upper()] = state_fixed.get(_raw_state.upper(), 0) + 1
+                else:
+                    state_blank_filled += 1
+                _state = HOME_STATE
         if _rep:
             rep_orders += 1
 
@@ -766,6 +782,7 @@ def flatten(orders, brand_q, from_date="", seller_id="", enrich=None, inv=None, 
         "skipped_company": skipped_company, "skipped_status": skipped_status,
         "name_fallback": name_fallback,
         "rep_orders": rep_orders,
+        "state_fixed": state_fixed, "state_blank_filled": state_blank_filled,
         "recon_order_total": round(recon_order_total, 2),
         "recon_net_total": round(recon_net_total, 2),
         "recon_gross_total": round(recon_gross_total, 2),
@@ -1164,6 +1181,9 @@ def main():
     print(f"Status filter: excluded {EXCLUDE_STATUSES or '(none)'}  ->  skipped {st['skipped_status']} orders")
     print(f"Brand id(s) in data:  {st['brand_ids']}   (Chill Medicated = 2425)")
     print(f"Date floor: {FROM_DATE or '(none)'}  ->  skipped {st['skipped_old']} older orders")
+    if HOME_STATE:
+        print(f"State normalize -> {HOME_STATE}: fixed non-{HOME_STATE} states {st.get('state_fixed') or '{}'}, "
+              f"filled {st.get('state_blank_filled', 0)} blank line(s)")
     print(f"Line items: {st['total_lines']} in range -> {st['matched']} kept (brand '{BRAND_FILTER}')")
     print(f"Name-based fallback reassigned {st['name_fallback']} line(s) in multi-brand orders.")
     print(f"Sales-rep enrichment: {st['rep_orders']} orders matched a rep "
