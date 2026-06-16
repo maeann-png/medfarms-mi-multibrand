@@ -63,7 +63,7 @@ SELLER_ID = os.getenv("LEAFLINK_SELLER_ID", "9105")
 
 # Statuses to exclude — a "products sold" report does not count these. Comma-sep.
 EXCLUDE_STATUSES = [s.strip().lower() for s in
-                    os.getenv("LEAFLINK_EXCLUDE_STATUSES", "Cancelled,Rejected").split(",")
+                    os.getenv("LEAFLINK_EXCLUDE_STATUSES", "Cancelled,Rejected,Combined,Draft").split(",")
                     if s.strip()]
 # Send the date floor to the server too (created_on__gte) to avoid pulling all
 # history. If LeafLink rejects it (400), the scraper drops it and falls back to
