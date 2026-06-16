@@ -344,6 +344,79 @@ const otherName = raw => {
   const b = (raw || "").trim();
   return OTHER_ALIASES[b] || b || "(unlabeled)";
 };
+
+/* MIXED-ORDER REATTRIBUTION --------------------------------------------------
+   Only the three genuine outside brands (Mitten Extracts / Hashish Boyz /
+   LayerCakeFarms) belong in "Other Brands". Some line items came back tagged
+   with TWO main brands (e.g. "Value Pak Distro, 100 Shafer") because the order
+   touched both and the line couldn't be pinned to one. We fold those back into
+   the main brands using the real sales data: each mixed line is matched to the
+   same product on clean single-brand orders (by SKU, then exact name, then a
+   normalized name). Lines whose product never sold clean are split by the ratio
+   that the *identifiable* lines of that same pair show (even split as a last
+   resort). All of this happens at load time from the data already on the page —
+   no scraper change needed. */
+const DISTRIBUTED_RAW = ["Brand 2402", "Brand 2994", "Brand 2993"];
+const isPrimaryName = b => PRIMARY_BRANDS.includes((b || "").trim());
+const isDistributedRaw = b => DISTRIBUTED_RAW.includes((b || "").trim());
+const isMixedBrand = b => {
+  const s = (b || "").trim();
+  return s.includes(",") && !isDistributedRaw(s);
+};
+const normName = s => (s || "").toLowerCase().replace(/\d{1,2}\/\d{1,2}\/\d{2,4}/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+function buildReattribution(rows) {
+  const bySku = {},
+    skuConf = new Set(),
+    byName = {},
+    nameConf = new Set(),
+    byNorm = {},
+    normConf = new Set();
+  const note = (map, conf, key, b) => {
+    if (!key) return;
+    if (map[key] && map[key] !== b) conf.add(key);else map[key] = b;
+  };
+  rows.forEach(r => {
+    const b = (r.brand || "").trim();
+    if (!isPrimaryName(b)) return;
+    note(bySku, skuConf, (r.product_sku || "").trim(), b);
+    note(byName, nameConf, (r.product_name || "").trim(), b);
+    note(byNorm, normConf, normName(r.product_name), b);
+  });
+  const resolveRow = (r, named) => {
+    const sku = (r.product_sku || "").trim(),
+      nm = (r.product_name || "").trim(),
+      nz = normName(r.product_name);
+    let res = sku && bySku[sku] && !skuConf.has(sku) ? bySku[sku] : nm && byName[nm] && !nameConf.has(nm) ? byName[nm] : nz && byNorm[nz] && !normConf.has(nz) ? byNorm[nz] : null;
+    return res && named.includes(res) ? res : null;
+  };
+  const acc = {};
+  rows.forEach(r => {
+    const raw = (r.brand || "").trim();
+    if (!isMixedBrand(raw)) return;
+    const named = raw.split(",").map(s => s.trim()).filter(isPrimaryName);
+    if (!named.length) return;
+    if (!acc[raw]) acc[raw] = {
+      resolved: {},
+      named
+    };
+    const res = resolveRow(r, named);
+    if (res) {
+      const rev = typeof r.revenue === "number" ? r.revenue : parseMoney(r.revenue);
+      acc[raw].resolved[res] = (acc[raw].resolved[res] || 0) + rev;
+    }
+  });
+  const ratios = {};
+  Object.entries(acc).forEach(([raw, o]) => {
+    const sum = Object.values(o.resolved).reduce((a, b) => a + b, 0);
+    const ratio = {};
+    if (sum > 0) o.named.forEach(b => ratio[b] = (o.resolved[b] || 0) / sum);else o.named.forEach(b => ratio[b] = 1 / o.named.length);
+    ratios[raw] = ratio;
+  });
+  return {
+    resolveRow,
+    ratios
+  };
+}
 /* ========================================================================= */
 
 if (typeof Recharts === 'undefined') {
@@ -484,24 +557,55 @@ function Dashboard({
   });
 
   // Normalize + classify every row once.
-  const all = useMemo(() => rawRows.map(r => {
-    const bucket = classifyAccount(r.buyer_name);
-    return {
-      ...r,
-      _bucket: bucket,
-      brand: displayBrand(r.brand),
-      _otherName: PRIMARY_BRANDS.includes((r.brand || '').trim()) ? '' : otherName(r.brand),
-      _date: parseDate(r.order_date),
-      _delivery: parseDate(r.delivery_date),
-      _revenue: typeof r.revenue === 'number' ? r.revenue : parseMoney(r.revenue),
-      _gross: typeof r.gross === 'number' ? r.gross : parseMoney(r.gross),
-      _discount: typeof r.discount === 'number' ? r.discount : parseMoney(r.discount),
-      _units: parseFloat(r.units_sold != null ? r.units_sold : r.quantity) || 0,
-      _invoice: r.order_number || r.order_uid || '',
-      _invoiceId: r.order_uid || r.order_number || '',
-      _isSample: !!r.is_sample
+  const reattr = useMemo(() => buildReattribution(rawRows), [rawRows]);
+  const all = useMemo(() => {
+    const mk = (r, bucket, brandRaw, scale) => {
+      const rev = typeof r.revenue === 'number' ? r.revenue : parseMoney(r.revenue);
+      const gross = typeof r.gross === 'number' ? r.gross : parseMoney(r.gross);
+      const disc = typeof r.discount === 'number' ? r.discount : parseMoney(r.discount);
+      const units = parseFloat(r.units_sold != null ? r.units_sold : r.quantity) || 0;
+      return {
+        ...r,
+        _bucket: bucket,
+        brand: displayBrand(brandRaw),
+        _otherName: isPrimaryName(brandRaw) ? '' : otherName(brandRaw),
+        _date: parseDate(r.order_date),
+        _delivery: parseDate(r.delivery_date),
+        _revenue: rev * scale,
+        _gross: gross * scale,
+        _discount: disc * scale,
+        _units: units * scale,
+        _invoice: r.order_number || r.order_uid || '',
+        _invoiceId: r.order_uid || r.order_number || '',
+        _isSample: !!r.is_sample
+      };
     };
-  }), [rawRows]);
+    const out = [];
+    rawRows.forEach(r => {
+      const bucket = classifyAccount(r.buyer_name);
+      const raw = (r.brand || '').trim();
+      if (isMixedBrand(raw)) {
+        const named = raw.split(',').map(s => s.trim()).filter(isPrimaryName);
+        if (!named.length) {
+          out.push(mk(r, bucket, raw, 1));
+          return;
+        }
+        const res = reattr.resolveRow(r, named);
+        if (res) {
+          out.push(mk(r, bucket, res, 1));
+        } else {
+          const ratio = reattr.ratios[raw] || {};
+          named.forEach(b => {
+            const k = ratio[b] != null ? ratio[b] : 1 / named.length;
+            if (k > 0) out.push(mk(r, bucket, b, k));
+          });
+        }
+      } else {
+        out.push(mk(r, bucket, raw, 1));
+      }
+    });
+    return out;
+  }, [rawRows, reattr]);
 
   // Excluded accounts are dropped from EVERYTHING.
   const kept = useMemo(() => all.filter(r => r._bucket !== 'excluded'), [all]);
