@@ -558,66 +558,73 @@ function Dashboard({
   });
 
   // Normalize + classify every row once.
-  const reattr = useMemo(() => buildReattribution(rawRows), [rawRows]);
+  // Brand attribution is "contains" (matches LeafLink's per-brand reports): each
+  // order is tagged with the SET of brands it contains, and every brand tab counts
+  // such orders at full value. Mixed orders therefore appear under each brand they
+  // contain — brand tabs overlap and sum higher than the true total, exactly like
+  // the LeafLink brand reports. "All Brands" counts each order once (true total).
+  const EXCLUDED_STATUS = {
+    combined: 1,
+    draft: 1,
+    cancelled: 1,
+    rejected: 1
+  };
   const all = useMemo(() => {
-    const mk = (r, bucket, brandRaw, scale) => {
+    // First pass: each order's brand-set, as canonical names (primaries by name,
+    // others mapped to their real name e.g. "Mitten Extracts").
+    const orderBrands = {};
+    rawRows.forEach(r => {
+      const id = r.order_uid || r.order_number || '';
+      if (!id) return;
+      const set = orderBrands[id] || (orderBrands[id] = new Set());
+      (r.brand || '').split(',').map(s => s.trim()).filter(Boolean).forEach(tok => set.add(isPrimaryName(tok) ? tok : otherName(tok)));
+    });
+    return rawRows.filter(r => !EXCLUDED_STATUS[String(r.order_status || '').trim().toLowerCase()]).map(r => {
       const rev = typeof r.revenue === 'number' ? r.revenue : parseMoney(r.revenue);
       const gross = typeof r.gross === 'number' ? r.gross : parseMoney(r.gross);
       const disc = typeof r.discount === 'number' ? r.discount : parseMoney(r.discount);
-      const units = parseFloat(r.units_sold != null ? r.units_sold : r.quantity) || 0;
+      // LeafLink: quantity = actual units, unit_multiplier = units per case, and
+      // the scraper's units_sold = quantity/unit_multiplier = CASES. Show real units.
+      const units = parseFloat(r.quantity != null ? r.quantity : r.units_sold) || 0;
+      const id = r.order_uid || r.order_number || '';
+      const bset = orderBrands[id] ? [...orderBrands[id]] : [];
+      const primaries = bset.filter(isPrimaryName);
+      const others = bset.filter(b => !isPrimaryName(b));
       return {
         ...r,
-        _bucket: bucket,
-        brand: displayBrand(brandRaw),
-        _otherName: isPrimaryName(brandRaw) ? '' : otherName(brandRaw),
+        _bucket: classifyAccount(r.buyer_name),
+        brand: bset.length ? bset.join(', ') : r.brand || '',
+        // display label only
+        _brands: bset,
+        _primaries: primaries,
+        _others: others,
+        _hasOther: others.length > 0,
         _date: parseDate(r.order_date),
         _delivery: parseDate(r.delivery_date),
-        _revenue: rev * scale,
-        _gross: gross * scale,
-        _discount: disc * scale,
-        _units: units * scale,
+        _revenue: rev,
+        _gross: gross,
+        _discount: disc,
+        _units: units,
         _invoice: r.order_number || r.order_uid || '',
         _invoiceId: r.order_uid || r.order_number || '',
         _isSample: !!r.is_sample
       };
-    };
-    const out = [];
-    rawRows.forEach(r => {
-      const bucket = classifyAccount(r.buyer_name);
-      const raw = (r.brand || '').trim();
-      if (isMixedBrand(raw)) {
-        const named = raw.split(',').map(s => s.trim()).filter(isPrimaryName);
-        if (!named.length) {
-          out.push(mk(r, bucket, raw, 1));
-          return;
-        }
-        const res = reattr.resolveRow(r, named);
-        if (res) {
-          out.push(mk(r, bucket, res, 1));
-        } else {
-          const ratio = reattr.ratios[raw] || {};
-          named.forEach(b => {
-            const k = ratio[b] != null ? ratio[b] : 1 / named.length;
-            if (k > 0) out.push(mk(r, bucket, b, k));
-          });
-        }
-      } else {
-        out.push(mk(r, bucket, raw, 1));
-      }
     });
-    return out;
-  }, [rawRows, reattr]);
+  }, [rawRows]);
 
   // Excluded accounts are dropped from EVERYTHING.
   const kept = useMemo(() => all.filter(r => r._bucket !== 'excluded'), [all]);
   const excludedRows = useMemo(() => all.filter(r => r._bucket === 'excluded'), [all]);
 
-  // Primary brand tabs (everything except the Other Brands group), by wholesale rev.
+  // Primary brand tabs — "contains" total across ALL accounts (wholesale +
+  // internal), at full order value, so each tab ties to its LeafLink brand
+  // report. Overlaps on mixed orders by design.
   const brandTabs = useMemo(() => {
     const map = {};
     kept.forEach(r => {
-      if (r.brand === OTHER_BRANDS_LABEL) return;
-      map[r.brand] = (map[r.brand] || 0) + (r._bucket === 'wholesale' ? r._revenue : 0);
+      r._primaries.forEach(b => {
+        map[b] = (map[b] || 0) + r._revenue;
+      });
     });
     return Object.entries(map).map(([name, rev]) => ({
       name,
@@ -625,19 +632,21 @@ function Dashboard({
     })).sort((a, b) => b.rev - a.rev);
   }, [kept]);
 
-  // The Other Brands group: its wholesale total + the real brands inside it.
+  // The Other Brands group: orders containing any non-primary brand, plus the
+  // real brands inside it (each at full contains value, all accounts).
   const otherInfo = useMemo(() => {
-    const rows = kept.filter(r => r.brand === OTHER_BRANDS_LABEL);
-    if (!rows.length) return null;
-    const rev = rows.filter(r => r._bucket === 'wholesale').reduce((s, r) => s + r._revenue, 0);
+    const rowsAll = kept.filter(r => r._hasOther);
+    if (!rowsAll.length) return null;
+    const rev = rowsAll.reduce((s, r) => s + r._revenue, 0);
     const m = {};
-    rows.forEach(r => {
-      const n = r._otherName || '(unlabeled)';
-      if (!m[n]) m[n] = {
-        name: n,
-        rev: 0
-      };
-      m[n].rev += r._revenue;
+    rowsAll.forEach(r => {
+      r._others.forEach(n => {
+        if (!m[n]) m[n] = {
+          name: n,
+          rev: 0
+        };
+        m[n].rev += r._revenue;
+      });
     });
     return {
       rev,
@@ -652,11 +661,15 @@ function Dashboard({
   }] : [])], [brandTabs, otherInfo]);
 
   // Rows for the active brand (ALL = no brand filter), before UI filters.
+  // "contains" membership: a brand's view = every order that contains that brand.
   const brandRows = useMemo(() => {
     if (activeBrand === 'ALL') return kept;
-    let rows = kept.filter(r => r.brand === activeBrand);
-    if (activeBrand === OTHER_BRANDS_LABEL && otherSub) rows = rows.filter(r => r._otherName === otherSub);
-    return rows;
+    if (activeBrand === OTHER_BRANDS_LABEL) {
+      let rows = kept.filter(r => r._hasOther);
+      if (otherSub) rows = rows.filter(r => r._others.includes(otherSub));
+      return rows;
+    }
+    return kept.filter(r => r._primaries.includes(activeBrand));
   }, [kept, activeBrand, otherSub]);
 
   // Apply UI filters.
@@ -674,9 +687,11 @@ function Dashboard({
     if (filters.invoice && r._invoiceId !== filters.invoice) return false;
     if (filters.excludeSamples && r._isSample) return false;
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      const hay = `${r._invoice} ${r.buyer_name} ${r.product_name}`.toLowerCase();
-      if (!hay.includes(q)) return false;
+      const q = filters.search.trim().toLowerCase();
+      if (q) {
+        const hay = `${r._invoice} ${r._invoiceId} ${r.buyer_name} ${r.product_name} ${r.sales_rep || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
     }
     return true;
   });
@@ -706,8 +721,12 @@ function Dashboard({
       }
     };
   }, [wholesale, internal, filtered]);
-  const scopeRows = scope === 'external' ? wholesale : scope === 'internal' ? internal : filtered;
-  const scopeHeading = scope === 'external' ? 'External' : scope === 'internal' ? 'Internal' : 'Total';
+  // While searching (or focused on one invoice), span ALL accounts so a matching
+  // order is never hidden by the External/Internal scope. Otherwise honor the scope.
+  const searching = !!(filters.search.trim() || filters.invoice);
+  const effScope = searching ? 'total' : scope;
+  const scopeRows = effScope === 'external' ? wholesale : effScope === 'internal' ? internal : filtered;
+  const scopeHeading = effScope === 'external' ? 'External' : effScope === 'internal' ? 'Internal' : 'Total';
 
   // Distinct values for filter dropdowns (from brand rows, both buckets).
   const distinct = useMemo(() => ({
@@ -766,9 +785,16 @@ function Dashboard({
     setActiveBrand: selectBrand
   }), /*#__PURE__*/React.createElement(ScopeCards, {
     seg: segRev,
-    scope: scope,
+    scope: effScope,
     setScope: setScope
-  }), activeBrand === 'ALL' && scope !== 'internal' && /*#__PURE__*/React.createElement(BrandOverview, {
+  }), searching && scope !== effScope && /*#__PURE__*/React.createElement("div", {
+    style: {
+      margin: '-6px 0 18px',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      color: 'var(--text-faint)'
+    }
+  }, "Showing all accounts while a search / invoice focus is active."), activeBrand === 'ALL' && scope !== 'internal' && /*#__PURE__*/React.createElement(BrandOverview, {
     kept: applyFilters(kept)
   }), filters.invoice && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -873,7 +899,32 @@ function WholesaleView({
     className: "section-title"
   }, heading, " ", /*#__PURE__*/React.createElement("em", null, "\xB7 ", heading === 'Internal' ? 'your own stores' : heading === 'Total' ? 'all accounts' : 'wholesale accounts')), /*#__PURE__*/React.createElement("span", {
     className: "section-meta"
-  }, brandLabel)), /*#__PURE__*/React.createElement("div", {
+  }, brandLabel)), brandLabel !== 'All Brands' && !brandLabel.startsWith('Other Brands') && /*#__PURE__*/React.createElement("div", {
+    style: {
+      margin: '0 0 18px',
+      padding: '10px 14px',
+      background: 'var(--bg-elev)',
+      border: '1px solid var(--border-soft, var(--border))',
+      borderLeft: '3px solid var(--accent)',
+      borderRadius: 'var(--radius-sm, 6px)',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      color: 'var(--text-dim)',
+      lineHeight: 1.6
+    }
+  }, "Counts every order containing ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, brandLabel), " at full order value, across all accounts \u2014 the ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--text)'
+    }
+  }, "Total"), " scope below ties to its LeafLink brand report. Mixed orders also appear under their other brands, so brand tabs overlap; ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--text)'
+    }
+  }, "All Brands"), " shows the true, un-doubled total."), /*#__PURE__*/React.createElement("div", {
     className: "kpi-grid"
   }, /*#__PURE__*/React.createElement(Kpi, {
     label: "Net Revenue",
@@ -1276,17 +1327,20 @@ function BrandOverview({
   const byBrand = useMemo(() => {
     const m = {};
     kept.forEach(r => {
-      const b = r.brand;
-      if (!m[b]) m[b] = {
-        name: b,
-        wholesale: 0,
-        internal: 0,
-        units: 0,
-        orders: new Set()
-      };
-      if (r._bucket === 'internal') m[b].internal += r._revenue;else m[b].wholesale += r._revenue;
-      m[b].units += r._units;
-      if (r._invoiceId) m[b].orders.add(r._invoiceId);
+      const names = [...r._primaries];
+      if (r._hasOther) names.push(OTHER_BRANDS_LABEL);
+      names.forEach(b => {
+        if (!m[b]) m[b] = {
+          name: b,
+          wholesale: 0,
+          internal: 0,
+          units: 0,
+          orders: new Set()
+        };
+        if (r._bucket === 'internal') m[b].internal += r._revenue;else m[b].wholesale += r._revenue;
+        m[b].units += r._units;
+        if (r._invoiceId) m[b].orders.add(r._invoiceId);
+      });
     });
     return Object.values(m).map(b => ({
       ...b,
