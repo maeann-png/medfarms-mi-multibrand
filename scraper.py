@@ -111,6 +111,21 @@ INV_FIELDS = [f.strip() for f in os.getenv(
 PULL_INVENTORY = os.getenv("LEAFLINK_PULL_INVENTORY", "0") == "1"
 INV_MAX_PAGES = int(os.getenv("LEAFLINK_INV_MAX_PAGES", "60"))
 
+# Per-brand inventory sweep. LeafLink's company-scoped product list can omit
+# whole brands (it returned only 3 of 5 here). So after the company list, we
+# also query products brand-by-brand using the brand ids auto-discovered from
+# the brands endpoint, and merge (dedup by id/sku). Endpoints/params are tried
+# in order until one returns products for that brand; everything is logged.
+INV_PER_BRAND = os.getenv("LEAFLINK_INV_PER_BRAND", "1") != "0"
+INV_BRAND_PARAMS = [p.strip() for p in os.getenv(
+    "LEAFLINK_INV_BRAND_PARAMS", "brand,brand_id,brand__id").split(",") if p.strip()]
+_DEF_BRAND_EPS = ",".join(filter(None, [
+    f"/api/v2/companies/{SELLER_ID}/products/" if SELLER_ID else "",
+    "/api/v2/products/",
+]))
+INV_BRAND_ENDPOINTS = [e.strip() for e in os.getenv(
+    "LEAFLINK_INV_BRAND_ENDPOINTS", _DEF_BRAND_EPS).split(",") if e.strip()]
+
 # Only keep products in these listing states (matches the LeafLink "Available"
 # export — drops Archived/Unlisted/etc., e.g. the stray 100k gummy). Field name
 # is tried across candidates since the API key isn't documented explicitly.
@@ -779,125 +794,168 @@ def _product_status(p):
 
 
 def fetch_inventory(brand_map=None):
-    """Best-effort current-inventory pull from the seller product catalog.
+    """Current-inventory pull from the seller catalog, in two phases.
 
-    Returns {"by_id": {product_id: qty}, "by_sku": {sku: qty}}. Any failure
-    (404 / wrong field / no permission) leaves the maps empty and the dashboard
-    column simply shows '—'. Mirrors the rep-enrichment approach: defensive +
-    diagnostic so the field mapping can be confirmed on a real run.
+      Phase 1 — the company-scoped product list. Fast, but LeafLink sometimes
+                truncates it (here it omitted Homiez and Hyman entirely).
+      Phase 2 — a per-brand sweep: for every brand id auto-discovered from the
+                brands endpoint, query products filtered to that brand, so brands
+                missing from phase 1 still load. Results from both phases are
+                merged and deduped by product id/sku.
+
+    Returns {"by_id","by_sku","catalog","brand_by_id","brand_by_sku"}. Any
+    failure leaves the maps empty and the dashboard simply shows '—'. The pull
+    prints a per-endpoint / per-brand diagnostic so a real run reveals exactly
+    which path surfaces each brand.
     """
     inv_by_id, inv_by_sku = {}, {}
     brand_by_id, brand_by_sku = {}, {}
     brand_map = brand_map or {}
-    catalog, catalog_seen = [], set()   # full brand-matched product list (incl. never-sold)
-    # Prefer the company-scoped path (small, fast, exactly Medfarms' catalog),
-    # then fall back to the broad /products/ list.
-    endpoints = []
-    if SELLER_ID:
-        endpoints.append(f"/api/v2/companies/{SELLER_ID}/products/")
-    endpoints += PRODUCTS_ENDPOINTS
-    for ep in endpoints:
-        url = f"{API_BASE}{ep}"
-        probe = _get(url, {"page_size": PAGE_SIZE, "page": 1})
-        if probe.status_code == 404:
-            print(f"  NOTE: 404 on {ep} — trying next products endpoint.")
-            continue
-        if probe.status_code != 200:
-            print(f"  NOTE: {probe.status_code} on {ep} — skipping inventory here.")
-            continue
-        field_hits, sample_keys, pages, seen = {}, None, 0, 0
-        status_counts, status_field_seen = {}, None
-        resp = probe  # reuse the probe as page 1
+    catalog, catalog_seen = [], set()
+    field_hits = {}
+    _sample = {"keys": None}
+
+    def ingest(p):
+        """Fold one product dict into the shared accumulators.
+        Returns (counted, kept_in_catalog, status_string)."""
+        if not isinstance(p, dict):
+            return (False, False, "")
+        if _sample["keys"] is None:
+            _sample["keys"] = sorted(p.keys())
+        val, f = _inv_value(p)
+        pid = p.get("id")
+        sku = str(p.get("sku") or "").strip()
+        name = p.get("name") or ""
+        line = (p.get("product_line_name") or _name_of(p.get("product_line"))
+                or _name_of(p.get("category")) or "")
+        _pb = p.get("brand")
+        _pbid = _pb.get("id") if isinstance(_pb, dict) else _pb
+        _pbname = _name_of(p.get("brand")) or _name_of(p.get("brand_name")) or ""
+        if not _pbname and _pbid is not None:
+            _pbname = brand_map.get(str(_pbid), "")
+        if _pbname:
+            if pid is not None:
+                brand_by_id[str(pid)] = _pbname
+            if sku:
+                brand_by_sku[sku] = _pbname
+        if val is not None:
+            field_hits[f] = field_hits.get(f, 0) + 1
+            if pid is not None:
+                inv_by_id[str(pid)] = val
+            if sku:
+                inv_by_sku[sku] = val
+        # Brand filter (BRAND_FILTER is "" on the multi-brand board, so kept).
+        brand_str = (_name_of(p.get("brand")) or _name_of(p.get("brand_name")) or name).lower()
+        if BRAND_FILTER.strip() and BRAND_FILTER.lower() not in brand_str:
+            return (True, False, "")
+        # Listing-state filter: keep only Available-type products. If no status
+        # field is present, keep it rather than risk dropping the whole catalog.
+        status, sf = _product_status(p)
+        if sf is not None and LISTED_STATES and status not in LISTED_STATES:
+            return (True, False, status)
+        ckey = str(pid) if pid is not None else sku
+        if ckey and ckey not in catalog_seen:
+            catalog_seen.add(ckey)
+            catalog.append({"id": str(pid) if pid is not None else "",
+                            "sku": sku, "name": name, "line": line,
+                            "status": status,
+                            "brand": _pbname or _name_of(p.get("brand")) or "",
+                            "inventory": _amount(p.get("quantity")),
+                            "reserved": _amount(p.get("reserved_qty")),
+                            "available": val})
+        return (True, True, status)
+
+    def scan(url, params, label):
+        """Page through one endpoint, ingesting every product. Returns stats
+        ({seen,kept,added,pages}) or None if the endpoint isn't usable."""
+        before = len(catalog)
+        seen = kept = pages = 0
+        status_counts = {}
+        resp = _get(url, params)
+        if resp.status_code == 404:
+            print(f"  inv[{label}]: 404 — skipped")
+            return None
+        if resp.status_code != 200:
+            print(f"  inv[{label}]: HTTP {resp.status_code} — skipped")
+            return None
         while resp is not None and pages < INV_MAX_PAGES:
             if resp.status_code != 200:
                 break
-            data = resp.json()
+            try:
+                data = resp.json()
+            except Exception:
+                break
             items = data.get("results") if isinstance(data, dict) else data
             if not items:
                 break
             for p in items:
-                if not isinstance(p, dict):
-                    continue
-                if sample_keys is None:
-                    sample_keys = sorted(p.keys())
-                seen += 1
-                val, f = _inv_value(p)
-                pid = p.get("id")
-                sku = str(p.get("sku") or "").strip()
-                name = p.get("name") or ""
-                line = (p.get("product_line_name") or _name_of(p.get("product_line"))
-                        or _name_of(p.get("category")) or "")
-                # SKU/id -> brand name. Prefer an embedded brand name/object; else
-                # resolve a brand id via brand_map. Done before any filter/continue.
-                _pb = p.get("brand")
-                _pbid = _pb.get("id") if isinstance(_pb, dict) else _pb
-                _pbname = _name_of(p.get("brand")) or _name_of(p.get("brand_name")) or ""
-                if not _pbname and _pbid is not None:
-                    _pbname = brand_map.get(str(_pbid), "")
-                if _pbname:
-                    if pid is not None:
-                        brand_by_id[str(pid)] = _pbname
-                    if sku:
-                        brand_by_sku[sku] = _pbname
-                if val is not None:
-                    field_hits[f] = field_hits.get(f, 0) + 1
-                    if pid is not None:
-                        inv_by_id[str(pid)] = val
-                    if sku:
-                        inv_by_sku[sku] = val
-                # Full catalog entry, filtered to the dashboard's brand (so the
-                # inventory section lists every Chill Medicated product — including
-                # ones with no sales — not other Medfarms brands).
-                brand_str = (_name_of(p.get("brand")) or _name_of(p.get("brand_name")) or name).lower()
-                if BRAND_FILTER.strip() and BRAND_FILTER.lower() not in brand_str:
-                    continue
-                # Listing state: keep only Available-type products (matches the CSV
-                # export, drops Archived/Unlisted like the stray 100k gummy).
-                # Defensive: if NO status field is found on this product, keep it
-                # rather than risk silently dropping the whole catalog.
-                status, sf = _product_status(p)
-                status_counts[status or "(none)"] = status_counts.get(status or "(none)", 0) + 1
-                if sf is not None:
-                    status_field_seen = sf
-                if sf is not None and LISTED_STATES and status not in LISTED_STATES:
-                    continue
-                ckey = str(pid) if pid is not None else sku
-                if ckey and ckey not in catalog_seen:
-                    catalog_seen.add(ckey)
-                    catalog.append({"id": str(pid) if pid is not None else "",
-                                    "sku": sku, "name": name, "line": line,
-                                    "status": status,
-                                    "brand": _pbname or _name_of(p.get("brand")) or "",
-                                    "inventory": _amount(p.get("quantity")),
-                                    "reserved": _amount(p.get("reserved_qty")),
-                                    "available": val})
+                counted, keptone, status = ingest(p)
+                if counted:
+                    seen += 1
+                    k = status or "(none)"
+                    status_counts[k] = status_counts.get(k, 0) + 1
+                    if keptone:
+                        kept += 1
             pages += 1
             nxt = data.get("next") if isinstance(data, dict) else None
             if not nxt:
                 break
-            resp = _get(nxt, None)   # follow the next URL (this endpoint ignores ?page=)
-        if pages >= INV_MAX_PAGES and (data.get("next") if isinstance(data, dict) else None):
-            print(f"  NOTE: hit INV_MAX_PAGES={INV_MAX_PAGES} on {ep} with more pages "
-                  f"remaining — raise LEAFLINK_INV_MAX_PAGES.")
-        if inv_by_id or inv_by_sku or catalog:
-            print(f"Inventory: matched on {ep} — {len(inv_by_id)} by id / "
-                  f"{len(inv_by_sku)} by sku across {seen} product rows "
-                  f"({pages} pages, fields: {field_hits}); "
-                  f"{len(catalog)} '{BRAND_FILTER}' products in catalog "
-                  f"(listed filter={sorted(LISTED_STATES)}; status field="
-                  f"{status_field_seen}; brand status breakdown={status_counts})")
-            if status_field_seen is None:
-                print(f"  WARNING: no listing-status field found among {STATUS_FIELDS}. "
-                      f"Catalog NOT filtered by listing state (all brand products kept). "
-                      f"First product keys: {sample_keys} — set LEAFLINK_STATUS_FIELDS "
-                      f"to the correct field name to enable Available-only filtering.")
-            break
-        print(f"  NOTE: {ep} returned {seen} products but no recognizable inventory "
-              f"field. First product keys: {sample_keys}")
-    if not inv_by_id and not inv_by_sku:
-        print("  Inventory pull found nothing — column will show '—'. "
-              "Set LEAFLINK_PRODUCTS_ENDPOINTS / LEAFLINK_INV_FIELDS once the "
-              "right path + field are known.")
+            resp = _get(nxt, None)
+        if pages >= INV_MAX_PAGES:
+            print(f"  inv[{label}]: hit INV_MAX_PAGES={INV_MAX_PAGES} — raise LEAFLINK_INV_MAX_PAGES if more remain")
+        added = len(catalog) - before
+        print(f"  inv[{label}]: {seen} products, {kept} available, +{added} new "
+              f"({pages}p) status={status_counts}")
+        return {"seen": seen, "kept": kept, "added": added, "pages": pages}
+
+    # ---- Phase 1: company-scoped product list ----
+    if SELLER_ID:
+        scan(f"{API_BASE}/api/v2/companies/{SELLER_ID}/products/",
+             {"page_size": PAGE_SIZE, "page": 1}, f"company/{SELLER_ID}")
+    for ep in PRODUCTS_ENDPOINTS:
+        if "/companies/" in ep:
+            continue  # already covered above
+        # An unscoped /products/ would return the whole marketplace; only sweep
+        # it if the user explicitly points PRODUCTS_ENDPOINTS at a scoped path.
+
+    # ---- Phase 2: per-brand sweep over auto-discovered brand ids ----
+    if INV_PER_BRAND and brand_map:
+        print(f"  inv: per-brand sweep over {len(brand_map)} discovered brand(s) "
+              f"via {INV_BRAND_ENDPOINTS} params={INV_BRAND_PARAMS}…")
+        for bid, bname in sorted(brand_map.items(), key=lambda kv: (kv[1] or "").lower()):
+            got = False
+            for ep in INV_BRAND_ENDPOINTS:
+                url = f"{API_BASE}{ep}"
+                scoped = "/companies/" not in ep  # add company scope on global /products/
+                for param in INV_BRAND_PARAMS:
+                    params = {param: bid, "page_size": PAGE_SIZE, "page": 1}
+                    if scoped and SELLER_ID:
+                        params["company"] = SELLER_ID
+                        params["seller"] = SELLER_ID
+                    st = scan(url, params, f"{bname}#{bid}:{ep.split('/api/v2/')[-1]}?{param}")
+                    if st and st["seen"] > 0:
+                        got = True
+                        break
+                if got:
+                    break
+            if not got:
+                print(f"  inv[{bname}#{bid}]: no products returned by any endpoint/param")
+
+    # ---- Summary ----
+    cat_by_brand = {}
+    for c in catalog:
+        b = c.get("brand") or "(unbranded)"
+        cat_by_brand[b] = cat_by_brand.get(b, 0) + 1
+    cat_by_brand = dict(sorted(cat_by_brand.items(), key=lambda kv: -kv[1]))
+    print(f"Inventory: {len(catalog)} available SKUs across {len(cat_by_brand)} "
+          f"brand(s): {cat_by_brand}")
+    print(f"  inv maps: {len(inv_by_id)} by id / {len(inv_by_sku)} by sku; "
+          f"inv fields hit={field_hits}; listed filter={sorted(LISTED_STATES)}")
+    if _sample["keys"]:
+        print(f"  first product keys: {_sample['keys']}")
+    if not catalog:
+        print("  Inventory pull found nothing — column will show '—'. Check the "
+              "diagnostics above for which endpoint/param returns products.")
     return {"by_id": inv_by_id, "by_sku": inv_by_sku, "catalog": catalog,
             "brand_by_id": brand_by_id, "brand_by_sku": brand_by_sku}
 
