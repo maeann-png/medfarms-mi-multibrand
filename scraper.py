@@ -859,6 +859,7 @@ def fetch_inventory(brand_map=None):
                     catalog.append({"id": str(pid) if pid is not None else "",
                                     "sku": sku, "name": name, "line": line,
                                     "status": status,
+                                    "brand": _pbname or _name_of(p.get("brand")) or "",
                                     "inventory": _amount(p.get("quantity")),
                                     "reserved": _amount(p.get("reserved_qty")),
                                     "available": val})
