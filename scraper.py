@@ -14,6 +14,7 @@ Field mapping is based on the real LeafLink response:
   - revenue per line = effective_price * (quantity / unit_multiplier)
 """
 
+import csv
 import json
 import gzip
 import os
@@ -113,6 +114,13 @@ INV_MAX_PAGES = int(os.getenv("LEAFLINK_INV_MAX_PAGES", "60"))
 # Only keep products in these listing states (matches the LeafLink "Available"
 # export — drops Archived/Unlisted/etc., e.g. the stray 100k gummy). Field name
 # is tried across candidates since the API key isn't documented explicitly.
+# Committed LeafLink "Inventory Overview" CSV export. The products API can hand
+# back a truncated catalog, so when this file is present in the repo we build the
+# dashboard's inventory list straight from it (authoritative). Drop it in as
+# `inventory.csv` (or keep the dated export name; newest matching inventory*.csv
+# wins). Set LEAFLINK_INVENTORY_CSV to a path to force one, or "off" to disable.
+INVENTORY_CSV = os.getenv("LEAFLINK_INVENTORY_CSV", "")
+
 LISTED_STATES = {s.strip().lower() for s in
                  os.getenv("LEAFLINK_LISTED_STATES", "available").split(",") if s.strip()}
 STATUS_FIELDS = [f.strip() for f in os.getenv(
@@ -894,6 +902,98 @@ def fetch_inventory(brand_map=None):
             "brand_by_id": brand_by_id, "brand_by_sku": brand_by_sku}
 
 
+def _csv_num(s):
+    """Parse a CSV numeric cell like '12,100' or '10.0' -> float (None if blank)."""
+    s = (s or "").replace(",", "").replace("$", "").strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _find_inventory_csv():
+    """Locate a committed inventory CSV in the repo. Returns a Path or None."""
+    flag = INVENTORY_CSV.strip()
+    if flag.lower() in ("off", "none", "0", "false"):
+        return None
+    if flag:
+        p = Path(flag)
+        return p if p.is_file() else None
+    here = OUTPUT_FILE.parent
+    exact = here / "inventory.csv"
+    if exact.is_file():
+        return exact
+    # LeafLink's dated export names (inventory-overview_YYYY-MM-DD_...) sort by
+    # date, so the lexicographically-last match is the newest export.
+    cands = sorted(here.glob("inventory*.csv"))
+    return cands[-1] if cands else None
+
+
+def _csv_col(row, *names):
+    """Tolerant column lookup: exact header first, then case-insensitive match."""
+    for n in names:
+        if n in row and row[n] not in (None, ""):
+            return row[n]
+    low = {k.lower(): k for k in row}
+    for n in names:
+        if n.lower() in low:
+            return row[low[n.lower()]]
+    return ""
+
+
+def inventory_catalog_from_csv():
+    """Build the dashboard inventory list from a committed LeafLink CSV export.
+
+    Returns a list of catalog dicts (same shape fetch_inventory produces) or
+    None when no CSV is present (so the API catalog is used as fallback).
+    Filtered to LISTED_STATES (default 'available'), exactly like the API path.
+    Touches only the displayed inventory — order/brand resolution is unaffected.
+    """
+    path = _find_inventory_csv()
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8-sig", newline="") as fh:
+            reader = csv.DictReader(fh)
+            out, seen, states = [], set(), {}
+            for r in reader:
+                status = str(_csv_col(r, "Listing State") or "").strip()
+                states[status or "(blank)"] = states.get(status or "(blank)", 0) + 1
+                if LISTED_STATES and status.lower() not in LISTED_STATES:
+                    continue
+                pid = str(_csv_col(r, "Product ID") or "").strip()
+                sku = str(_csv_col(r, "SKU") or "").strip()
+                key = pid or sku
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                out.append({
+                    "id": pid,
+                    "sku": sku,
+                    "name": str(_csv_col(r, "Name") or "").strip(),
+                    "line": str(_csv_col(r, "Product Line") or "").strip(),
+                    "status": status,
+                    "brand": str(_csv_col(r, "Brand") or "").strip(),
+                    "inventory": _csv_num(_csv_col(r, "Inventory (Units)")),
+                    "reserved": _csv_num(_csv_col(r, "Reserved Inventory (Units)")),
+                    "available": _csv_num(_csv_col(r, "Available Inventory (Units)")),
+                })
+    except Exception as e:
+        print(f"  NOTE: could not read inventory CSV {path} ({e}); using API catalog.")
+        return None
+    by_brand = {}
+    for e in out:
+        b = e["brand"] or "(blank)"
+        by_brand[b] = by_brand.get(b, 0) + 1
+    print(f"Inventory: built from {path.name} -> {len(out)} listed products "
+          f"(filter={sorted(LISTED_STATES) or 'all states'}; "
+          f"file states={states}; by brand={by_brand})")
+    return out
+
+
 def load_existing():
     """Return (rows, from_date) from the committed sales_data.json, or ([], "")."""
     if OUTPUT_FILE.exists():
@@ -958,6 +1058,14 @@ def main():
               f"{len(inv.get('brand_by_id', {}))} id entries")
     else:
         inv = {"by_id": {}, "by_sku": {}, "brand_by_id": {}, "brand_by_sku": {}}
+
+    # If a LeafLink inventory CSV is committed to the repo, it is the source of
+    # truth for the dashboard's Current Inventory section (the products API can
+    # under-return the catalog). This replaces ONLY the displayed catalog; the
+    # SKU->brand map and order resolution above are left exactly as they were.
+    _csv_catalog = inventory_catalog_from_csv()
+    if _csv_catalog is not None:
+        inv["catalog"] = _csv_catalog
 
     if orders:
         first = orders[0]
