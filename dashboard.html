@@ -9,19 +9,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script>window.React||document.write('<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"><\/script>');</script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script>window.ReactDOM||document.write('<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"><\/script>');</script>
-<script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-<script>window.PropTypes||document.write('<script crossorigin src="https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js"><\/script>');</script>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
-<script>window.Recharts||document.write('<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"><\/script>');</script>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-<script>window.pako||document.write('<script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js"><\/script>');</script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script>window.Babel||document.write('<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"><\/script>');</script>
-
 <style>
   :root {
     /* Medfarms · Michigan — "Lush Forest" green on dark forest */
@@ -295,12 +282,22 @@
     .scope-card:hover { transform: none; }
   }
 </style>
+<!-- Libraries served from this repo root (no external CDN). -->
+<script src="react.production.min.js"></script>
+<script src="react-dom.production.min.js"></script>
+<script src="prop-types.min.js"></script>
+<script src="Recharts.js"></script>
+<script src="pako.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
 
-<script type="text/babel">
-const { useState, useEffect, useMemo } = React;
+<script>
+const {
+  useState,
+  useEffect,
+  useMemo
+} = React;
 
 /* ===========================================================================
    ACCOUNT ROUTING  —  EDIT THIS BLOCK TO RECLASSIFY ACCOUNTS
@@ -309,21 +306,16 @@ const { useState, useEffect, useMemo } = React;
    like "Dispo - Romeo" also catches "Dispo - Romeo MED", etc.
    EXCLUDE is checked first, then INTERNAL, otherwise the account is WHOLESALE.
    =========================================================================== */
-const EXCLUDE_ACCOUNTS = [
-  "Chill CBD Ecommerce",
-  "Dispo Ace Production",
-  "GNO",                          // matches "GNO Enterprises - Backpack Boyz - Monroe"
+const EXCLUDE_ACCOUNTS = ["Chill CBD Ecommerce", "Dispo Ace Production", "GNO" // matches "GNO Enterprises - Backpack Boyz - Monroe"
 ];
-const INTERNAL_STORES = [
-  "Dispo - Bay City North",       // + "... MED"
-  "Dispo - Bay City South",       // + "... MED"
-  "Dispo - Battle Creek (Fire Creek)",   // your "Dispo - Fire Creek Battle Creek"
-  "Dispo - Hazel Park",
-  "Dispo - Romeo",
-  "Dispo - Whitmore Lake",
-];
-
-const classifyAccount = (buyerName) => {
+const INTERNAL_STORES = ["Dispo - Bay City North",
+// + "... MED"
+"Dispo - Bay City South",
+// + "... MED"
+"Dispo - Battle Creek (Fire Creek)",
+// your "Dispo - Fire Creek Battle Creek"
+"Dispo - Hazel Park", "Dispo - Romeo", "Dispo - Whitmore Lake"];
+const classifyAccount = buyerName => {
   const n = String(buyerName || '').trim().toLowerCase();
   if (!n) return 'wholesale';
   for (const e of EXCLUDE_ACCOUNTS) if (n.startsWith(e.toLowerCase())) return 'excluded';
@@ -339,29 +331,45 @@ const classifyAccount = (buyerName) => {
    here to promote it to its own tab. */
 const PRIMARY_BRANDS = ["Hyman", "Chill Medicated", "Value Pak Distro", "100 Shafer", "Homiez", "Covert Cups"];
 const OTHER_BRANDS_LABEL = "Other Brands";
-const displayBrand = (raw) => PRIMARY_BRANDS.includes((raw || "").trim()) ? (raw || "").trim() : OTHER_BRANDS_LABEL;
+const displayBrand = raw => PRIMARY_BRANDS.includes((raw || "").trim()) ? (raw || "").trim() : OTHER_BRANDS_LABEL;
 // Friendly names for the brands that live inside "Other Brands" (shown when the
 // Other Brands tab is expanded). Unmapped values (e.g. mixed-order combos) show
 // as-is. Add entries here as you identify more brand IDs.
-const OTHER_ALIASES = { "Brand 2402": "Mitten Extracts", "Brand 2994": "Hashish Boyz", "Brand 2993": "LayerCakeFarms" };
-const otherName = (raw) => { const b = (raw || "").trim(); return OTHER_ALIASES[b] || b || "(unlabeled)"; };
+const OTHER_ALIASES = {
+  "Brand 2402": "Mitten Extracts",
+  "Brand 2994": "Hashish Boyz",
+  "Brand 2993": "LayerCakeFarms"
+};
+const otherName = raw => {
+  const b = (raw || "").trim();
+  return OTHER_ALIASES[b] || b || "(unlabeled)";
+};
 /* ========================================================================= */
 
 if (typeof Recharts === 'undefined') {
-  document.getElementById('root').innerHTML =
-    '<div style="max-width:600px;margin:80px auto;padding:32px;background:#1c2f22;border:1px solid #33543e;border-radius:4px;color:#eaf6ed;font-family:sans-serif">' +
-    '<h2 style="font-family:Fraunces,serif;font-weight:400;font-style:italic;margin-bottom:12px">Charts library didn\'t load</h2>' +
-    '<p style="color:#9dc1a9;line-height:1.6">Recharts failed to load from the CDN — usually an ad blocker, firewall, or offline. Disable extensions for this page or refresh.</p></div>';
+  document.getElementById('root').innerHTML = '<div style="max-width:600px;margin:80px auto;padding:32px;background:#1c2f22;border:1px solid #33543e;border-radius:4px;color:#eaf6ed;font-family:sans-serif">' + '<h2 style="font-family:Fraunces,serif;font-weight:400;font-style:italic;margin-bottom:12px">Charts library didn\'t load</h2>' + '<p style="color:#9dc1a9;line-height:1.6">Recharts failed to load from the CDN — usually an ad blocker, firewall, or offline. Disable extensions for this page or refresh.</p></div>';
   throw new Error('Recharts failed to load');
 }
-
 const {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell
 } = Recharts;
 
 // --- Helpers ----------------------------------------------------------------
-const parseMoney = (str) => {
+const parseMoney = str => {
   if (str == null) return 0;
   if (typeof str === 'number') return str;
   let s = String(str).replace(/[$,\s]/g, '');
@@ -369,15 +377,20 @@ const parseMoney = (str) => {
   const n = parseFloat(s);
   return isNaN(n) ? 0 : n;
 };
-const fmtMoney = (n) => {
+const fmtMoney = n => {
   if (!n && n !== 0) return '—';
   if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
   if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
-  return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return '$' + n.toLocaleString(undefined, {
+    maximumFractionDigits: 0
+  });
 };
-const fmtMoneyFull = (n) => '$' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtNum = (n) => (n || 0).toLocaleString();
-const parseDate = (str) => {
+const fmtMoneyFull = n => '$' + (n || 0).toLocaleString(undefined, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+const fmtNum = n => (n || 0).toLocaleString();
+const parseDate = str => {
   if (!str) return null;
   const s = String(str).trim();
   const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -387,7 +400,7 @@ const parseDate = (str) => {
   const d = new Date(s);
   return isNaN(d) ? null : d;
 };
-const ymdStr = (d) => {
+const ymdStr = d => {
   if (!(d instanceof Date) || isNaN(d)) return '';
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
@@ -397,7 +410,6 @@ const PIE_COLORS = ['#68ba7f', '#4d9461', '#8fcba0', '#e0a85a', '#cfffdc', '#e07
 function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-
   useEffect(() => {
     const tryGz = async () => {
       const r = await fetch('sales_data.json.gz?t=' + Date.now());
@@ -406,49 +418,70 @@ function App() {
       let text;
       try {
         // Normal case: GitHub serves the raw gzip bytes; inflate them.
-        text = pako.inflate(buf, { to: 'string' });
+        text = pako.inflate(buf, {
+          to: 'string'
+        });
       } catch (e) {
         // Edge case: a CDN already decoded it (Content-Encoding: gzip) → it's plain text.
         text = new TextDecoder().decode(buf);
       }
       return JSON.parse(text);
     };
-    const tryPlain = async (name) => {
+    const tryPlain = async name => {
       const r = await fetch(name + '?t=' + Date.now());
       if (!r.ok) throw new Error('no ' + name);
       return r.json();
     };
     const load = () => {
-      tryGz()
-        .catch(() => tryPlain('sales_data.json'))
-        .catch(() => tryPlain('sales_data.preview.json'))
-        .then(setData)
-        .catch(() => setError('Could not load sales_data.json.gz'));
+      tryGz().catch(() => tryPlain('sales_data.json')).catch(() => tryPlain('sales_data.preview.json')).then(setData).catch(() => setError('Could not load sales_data.json.gz'));
     };
     load();
     const id = setInterval(load, 60000);
     return () => clearInterval(id);
   }, []);
-
-  if (error) return (
-    <div className="app"><div className="empty">
-      <h2>No data yet</h2>
-      <p>Place <code>sales_data.json</code> next to this file, then refresh.</p>
-      <p style={{ marginTop: 12, fontSize: 12, color: 'var(--text-faint)' }}>{error}</p>
-    </div></div>
-  );
-  if (!data) return <div className="app"><div className="empty"><h2>Loading…</h2></div></div>;
-  return <Dashboard data={data} />;
+  if (error) return /*#__PURE__*/React.createElement("div", {
+    className: "app"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty"
+  }, /*#__PURE__*/React.createElement("h2", null, "No data yet"), /*#__PURE__*/React.createElement("p", null, "Place ", /*#__PURE__*/React.createElement("code", null, "sales_data.json"), " next to this file, then refresh."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      marginTop: 12,
+      fontSize: 12,
+      color: 'var(--text-faint)'
+    }
+  }, error)));
+  if (!data) return /*#__PURE__*/React.createElement("div", {
+    className: "app"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty"
+  }, /*#__PURE__*/React.createElement("h2", null, "Loading\u2026")));
+  return /*#__PURE__*/React.createElement(Dashboard, {
+    data: data
+  });
 }
 
 // --- Dashboard --------------------------------------------------------------
-function Dashboard({ data }) {
+function Dashboard({
+  data
+}) {
   const rawRows = data.rows || [];
   const [activeBrand, setActiveBrand] = useState('ALL');
   const [otherSub, setOtherSub] = useState('');
-  const [scope, setScope] = useState('external');  // external | internal | total
-  const selectBrand = (b) => { setActiveBrand(b); if (b !== OTHER_BRANDS_LABEL) setOtherSub(''); };
-  const [filters, setFilters] = useState({ from: '', to: '', buyer: '', rep: '', state: '', status: '', search: '', excludeSamples: false });
+  const [scope, setScope] = useState('external'); // external | internal | total
+  const selectBrand = b => {
+    setActiveBrand(b);
+    if (b !== OTHER_BRANDS_LABEL) setOtherSub('');
+  };
+  const [filters, setFilters] = useState({
+    from: '',
+    to: '',
+    buyer: '',
+    rep: '',
+    state: '',
+    status: '',
+    search: '',
+    excludeSamples: false
+  });
 
   // Normalize + classify every row once.
   const all = useMemo(() => rawRows.map(r => {
@@ -466,7 +499,7 @@ function Dashboard({ data }) {
       _units: parseFloat(r.units_sold != null ? r.units_sold : r.quantity) || 0,
       _invoice: r.order_number || r.order_uid || '',
       _invoiceId: r.order_uid || r.order_number || '',
-      _isSample: !!r.is_sample,
+      _isSample: !!r.is_sample
     };
   }), [rawRows]);
 
@@ -477,8 +510,14 @@ function Dashboard({ data }) {
   // Primary brand tabs (everything except the Other Brands group), by wholesale rev.
   const brandTabs = useMemo(() => {
     const map = {};
-    kept.forEach(r => { if (r.brand === OTHER_BRANDS_LABEL) return; map[r.brand] = (map[r.brand] || 0) + (r._bucket === 'wholesale' ? r._revenue : 0); });
-    return Object.entries(map).map(([name, rev]) => ({ name, rev })).sort((a, b) => b.rev - a.rev);
+    kept.forEach(r => {
+      if (r.brand === OTHER_BRANDS_LABEL) return;
+      map[r.brand] = (map[r.brand] || 0) + (r._bucket === 'wholesale' ? r._revenue : 0);
+    });
+    return Object.entries(map).map(([name, rev]) => ({
+      name,
+      rev
+    })).sort((a, b) => b.rev - a.rev);
   }, [kept]);
 
   // The Other Brands group: its wholesale total + the real brands inside it.
@@ -487,15 +526,25 @@ function Dashboard({ data }) {
     if (!rows.length) return null;
     const rev = rows.filter(r => r._bucket === 'wholesale').reduce((s, r) => s + r._revenue, 0);
     const m = {};
-    rows.forEach(r => { const n = r._otherName || '(unlabeled)'; if (!m[n]) m[n] = { name: n, rev: 0 }; m[n].rev += r._revenue; });
-    return { rev, constituents: Object.values(m).sort((a, b) => b.rev - a.rev) };
+    rows.forEach(r => {
+      const n = r._otherName || '(unlabeled)';
+      if (!m[n]) m[n] = {
+        name: n,
+        rev: 0
+      };
+      m[n].rev += r._revenue;
+    });
+    return {
+      rev,
+      constituents: Object.values(m).sort((a, b) => b.rev - a.rev)
+    };
   }, [kept]);
 
   // Ordered list for the filter dropdown: primaries first, Other Brands always last.
-  const brands = useMemo(
-    () => [...brandTabs, ...(otherInfo ? [{ name: OTHER_BRANDS_LABEL, rev: otherInfo.rev }] : [])],
-    [brandTabs, otherInfo]
-  );
+  const brands = useMemo(() => [...brandTabs, ...(otherInfo ? [{
+    name: OTHER_BRANDS_LABEL,
+    rev: otherInfo.rev
+  }] : [])], [brandTabs, otherInfo]);
 
   // Rows for the active brand (ALL = no brand filter), before UI filters.
   const brandRows = useMemo(() => {
@@ -506,7 +555,7 @@ function Dashboard({ data }) {
   }, [kept, activeBrand, otherSub]);
 
   // Apply UI filters.
-  const applyFilters = (rows) => rows.filter(r => {
+  const applyFilters = rows => rows.filter(r => {
     if (filters.from || filters.to) {
       if (!r._date) return false;
       const d = ymdStr(r._date);
@@ -525,7 +574,6 @@ function Dashboard({ data }) {
     }
     return true;
   });
-
   const filtered = useMemo(() => applyFilters(brandRows), [brandRows, filters]);
   const wholesale = useMemo(() => filtered.filter(r => r._bucket === 'wholesale'), [filtered]);
   const internal = useMemo(() => filtered.filter(r => r._bucket === 'internal'), [filtered]);
@@ -537,7 +585,20 @@ function Dashboard({ data }) {
     const eo = new Set(wholesale.map(r => r._invoiceId).filter(Boolean)).size;
     const io = new Set(internal.map(r => r._invoiceId).filter(Boolean)).size;
     const to = new Set(filtered.map(r => r._invoiceId).filter(Boolean)).size;
-    return { external: { rev: ext, orders: eo }, internal: { rev: int, orders: io }, total: { rev: ext + int, orders: to } };
+    return {
+      external: {
+        rev: ext,
+        orders: eo
+      },
+      internal: {
+        rev: int,
+        orders: io
+      },
+      total: {
+        rev: ext + int,
+        orders: to
+      }
+    };
   }, [wholesale, internal, filtered]);
   const scopeRows = scope === 'external' ? wholesale : scope === 'internal' ? internal : filtered;
   const scopeHeading = scope === 'external' ? 'External' : scope === 'internal' ? 'Internal' : 'Total';
@@ -547,47 +608,87 @@ function Dashboard({ data }) {
     buyers: [...new Set(brandRows.filter(r => r._bucket === 'wholesale').map(r => r.buyer_name).filter(Boolean))].sort(),
     reps: [...new Set(brandRows.map(r => r.sales_rep).filter(Boolean))].sort(),
     states: [...new Set(brandRows.map(r => r.buyer_state).filter(Boolean))].sort(),
-    statuses: [...new Set(brandRows.map(r => r.payment_status).filter(Boolean))].sort(),
+    statuses: [...new Set(brandRows.map(r => r.payment_status).filter(Boolean))].sort()
   }), [brandRows]);
-
-  const resetFilters = () => setFilters({ from: '', to: '', buyer: '', rep: '', state: '', status: '', search: '', excludeSamples: false });
-
+  const resetFilters = () => setFilters({
+    from: '',
+    to: '',
+    buyer: '',
+    rep: '',
+    state: '',
+    status: '',
+    search: '',
+    excludeSamples: false
+  });
   const fetchedAt = new Date(data.fetched_at);
-  const brandLabel = activeBrand === 'ALL' ? 'All Brands'
-    : (activeBrand === OTHER_BRANDS_LABEL && otherSub) ? 'Other Brands › ' + otherSub
-    : activeBrand;
-
-  return (
-    <div className="app">
-      <Topbar fetchedAt={fetchedAt} data={data} keptCount={kept.length} excludedCount={excludedRows.length} />
-
-      <TabBar brandTabs={brandTabs} otherInfo={otherInfo} active={activeBrand} setActive={selectBrand} otherSub={otherSub} setOtherSub={setOtherSub} kept={kept} />
-
-      <AccountRouting all={all} kept={kept} excludedRows={excludedRows} />
-
-      <QuickRanges filters={filters} setFilters={setFilters} />
-
-      <FilterBar filters={filters} setFilters={setFilters} distinct={distinct} onReset={resetFilters}
-        brands={brands} activeBrand={activeBrand} setActiveBrand={selectBrand} />
-
-      <ScopeCards seg={segRev} scope={scope} setScope={setScope} />
-
-      {activeBrand === 'ALL' && scope !== 'internal' && <BrandOverview kept={applyFilters(kept)} />}
-
-      <WholesaleView rows={scopeRows} brandLabel={brandLabel} heading={scopeHeading} />
-
-      <InventorySection inventory={data.inventory} activeBrand={activeBrand} otherSub={otherSub} brandLabel={brandLabel} />
-
-      <footer style={{ marginTop: 60, padding: '20px 0', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-        <span>Medfarms · Michigan · Sales Intelligence</span>
-        <span>Auto-refresh every 60s</span>
-      </footer>
-    </div>
-  );
+  const brandLabel = activeBrand === 'ALL' ? 'All Brands' : activeBrand === OTHER_BRANDS_LABEL && otherSub ? 'Other Brands › ' + otherSub : activeBrand;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "app"
+  }, /*#__PURE__*/React.createElement(Topbar, {
+    fetchedAt: fetchedAt,
+    data: data,
+    keptCount: kept.length,
+    excludedCount: excludedRows.length
+  }), /*#__PURE__*/React.createElement(TabBar, {
+    brandTabs: brandTabs,
+    otherInfo: otherInfo,
+    active: activeBrand,
+    setActive: selectBrand,
+    otherSub: otherSub,
+    setOtherSub: setOtherSub,
+    kept: kept
+  }), /*#__PURE__*/React.createElement(AccountRouting, {
+    all: all,
+    kept: kept,
+    excludedRows: excludedRows
+  }), /*#__PURE__*/React.createElement(QuickRanges, {
+    filters: filters,
+    setFilters: setFilters
+  }), /*#__PURE__*/React.createElement(FilterBar, {
+    filters: filters,
+    setFilters: setFilters,
+    distinct: distinct,
+    onReset: resetFilters,
+    brands: brands,
+    activeBrand: activeBrand,
+    setActiveBrand: selectBrand
+  }), /*#__PURE__*/React.createElement(ScopeCards, {
+    seg: segRev,
+    scope: scope,
+    setScope: setScope
+  }), activeBrand === 'ALL' && scope !== 'internal' && /*#__PURE__*/React.createElement(BrandOverview, {
+    kept: applyFilters(kept)
+  }), /*#__PURE__*/React.createElement(WholesaleView, {
+    rows: scopeRows,
+    brandLabel: brandLabel,
+    heading: scopeHeading
+  }), /*#__PURE__*/React.createElement(InventorySection, {
+    inventory: data.inventory,
+    activeBrand: activeBrand,
+    otherSub: otherSub,
+    brandLabel: brandLabel
+  }), /*#__PURE__*/React.createElement("footer", {
+    style: {
+      marginTop: 60,
+      padding: '20px 0',
+      borderTop: '1px solid var(--border)',
+      display: 'flex',
+      justifyContent: 'space-between',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      color: 'var(--text-faint)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.12em'
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Medfarms \xB7 Michigan \xB7 Sales Intelligence"), /*#__PURE__*/React.createElement("span", null, "Auto-refresh every 60s")));
 }
 
 // --- Wholesale view ---------------------------------------------------------
-function WholesaleView({ rows, brandLabel, heading = 'External' }) {
+function WholesaleView({
+  rows,
+  brandLabel,
+  heading = 'External'
+}) {
   const k = useMemo(() => kpis(rows), [rows]);
   const timeSeries = useMemo(() => series(rows), [rows]);
   const topProducts = useMemo(() => groupSum(rows, 'product_name'), [rows]);
@@ -596,218 +697,549 @@ function WholesaleView({ rows, brandLabel, heading = 'External' }) {
   const byCategory = useMemo(() => groupSum(rows, 'product_category', 8), [rows]);
   const byState = useMemo(() => groupSum(rows, 'buyer_state', 15), [rows]);
   const paymentMix = useMemo(() => {
-    const m = {}; rows.forEach(r => { const key = r.payment_status || 'Unknown'; m[key] = (m[key] || 0) + r._revenue; });
-    return Object.entries(m).map(([name, revenue]) => ({ name, revenue })).sort((a, b) => b.revenue - a.revenue);
+    const m = {};
+    rows.forEach(r => {
+      const key = r.payment_status || 'Unknown';
+      m[key] = (m[key] || 0) + r._revenue;
+    });
+    return Object.entries(m).map(([name, revenue]) => ({
+      name,
+      revenue
+    })).sort((a, b) => b.revenue - a.revenue);
   }, [rows]);
   const months = useMemo(() => monthly(rows), [rows]);
   const invoices = useMemo(() => buildInvoices(rows), [rows]);
-
-  return (
-    <>
-      <div className="section-header" style={{ marginBottom: 14 }}>
-        <h2 className="section-title">{heading} <em>· {heading === 'Internal' ? 'your own stores' : heading === 'Total' ? 'all accounts' : 'wholesale accounts'}</em></h2>
-        <span className="section-meta">{brandLabel}</span>
-      </div>
-
-      <div className="kpi-grid">
-        <Kpi label="Net Revenue" value={fmtMoney(k.revenue)} sub={`${fmtNum(k.lineItems)} line items`} accent />
-        <Kpi label="Orders / Invoices" value={fmtNum(k.orders)} sub={`${fmtMoney(k.avgOrder)} avg order`} />
-        <Kpi label="Units Sold" value={fmtNum(Math.round(k.units))} sub={`${k.avgUnitsPerOrder.toFixed(1)} units / order`} />
-        <Kpi label="MOM Change" value={k.momChange == null ? '—' : (k.momChange >= 0 ? '+' : '') + k.momChange.toFixed(1) + '%'} sub={k.momLabel} />
-      </div>
-      <div className="kpi-grid">
-        <Kpi label="Active Buyers" value={fmtNum(k.buyers)} sub="unique accounts" />
-        <Kpi label="Markets" value={fmtNum(k.states)} sub="states with sales" />
-        <Kpi label="Gross Sales" value={fmtMoney(k.gross)} sub="before discounts" />
-        <Kpi label="Discounts" value={fmtMoney(k.discounts)} sub={k.gross ? ((k.discounts / k.gross) * 100).toFixed(1) + '% of gross' : '—'} />
-      </div>
-
-      <section className="section">
-        <div className="section-header"><h2 className="section-title">Revenue <em>over time</em></h2><span className="section-meta">{timeSeries.length} days</span></div>
-        <div className="card" style={{ height: 300 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={timeSeries} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
-              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#68ba7f" stopOpacity={0.4} /><stop offset="100%" stopColor="#68ba7f" stopOpacity={0} /></linearGradient></defs>
-              <CartesianGrid stroke="#33543e" strokeDasharray="2 2" vertical={false} />
-              <XAxis dataKey="date" stroke="#688a73" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={{ stroke: '#33543e' }} />
-              <YAxis stroke="#688a73" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickLine={false} axisLine={false} tickFormatter={fmtMoney} />
-              <Tooltip contentStyle={{ background: '#1c2f22', border: '1px solid #33543e', borderRadius: 4, fontSize: 12 }} labelStyle={{ color: '#9dc1a9', fontFamily: 'JetBrains Mono', fontSize: 11 }} formatter={(v, n) => n === 'revenue' ? [fmtMoneyFull(v), 'Revenue'] : [fmtNum(v), n]} />
-              <Area type="monotone" dataKey="revenue" stroke="#68ba7f" strokeWidth={2} fill="url(#rev)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-
-      <InvoiceTable invoices={invoices} title="Invoices" accent="var(--accent)" />
-
-      <ProductBreakdown rows={rows} showBrand={brandLabel === 'All Brands'} />
-
-      <section className="section">
-        <div className="section-header"><h2 className="section-title">Payment <em>status</em></h2><span className="section-meta">AR mix</span></div>
-        <div className="card"><RankList data={paymentMix} /></div>
-      </section>
-
-      <section className="section"><div className="grid-half">
-        <RankCard title="Top products" data={topProducts} />
-        <RankCard title="Top buyers" data={topBuyers} />
-      </div></section>
-
-      <section className="section"><div className="grid-2">
-        <div>
-          <div className="section-header"><h2 className="section-title">Sales <em>by rep</em></h2><span className="section-meta">{byRep.length} reps</span></div>
-          <div className="card" style={{ height: 360 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byRep} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                <CartesianGrid stroke="#33543e" strokeDasharray="2 2" horizontal={false} />
-                <XAxis type="number" stroke="#688a73" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={fmtMoney} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#688a73" tick={{ fontSize: 11 }} width={130} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: '#1c2f22', border: '1px solid #33543e', borderRadius: 4, fontSize: 12 }} formatter={(v) => [fmtMoneyFull(v), 'Revenue']} />
-                <Bar dataKey="revenue" fill="#68ba7f" radius={[0, 2, 2, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div>
-          <div className="section-header"><h2 className="section-title">By <em>category</em></h2><span className="section-meta">mix</span></div>
-          <div className="card" style={{ height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={byCategory} dataKey="revenue" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={110} paddingAngle={2} stroke="#15241a" strokeWidth={2}>
-                  {byCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: '#1c2f22', border: '1px solid #33543e', borderRadius: 4, fontSize: 12 }} formatter={(v) => fmtMoneyFull(v)} />
-                <Legend verticalAlign="bottom" iconType="square" wrapperStyle={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#9dc1a9' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div></section>
-
-      <section className="section">
-        <div className="section-header"><h2 className="section-title">By <em>state</em></h2><span className="section-meta">geography</span></div>
-        <div className="card"><RankList data={byState} /></div>
-      </section>
-
-      <MonthlyTable months={months} />
-    </>
-  );
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "section-header",
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, heading, " ", /*#__PURE__*/React.createElement("em", null, "\xB7 ", heading === 'Internal' ? 'your own stores' : heading === 'Total' ? 'all accounts' : 'wholesale accounts')), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, brandLabel)), /*#__PURE__*/React.createElement("div", {
+    className: "kpi-grid"
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    label: "Net Revenue",
+    value: fmtMoney(k.revenue),
+    sub: `${fmtNum(k.lineItems)} line items`,
+    accent: true
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Orders / Invoices",
+    value: fmtNum(k.orders),
+    sub: `${fmtMoney(k.avgOrder)} avg order`
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Units Sold",
+    value: fmtNum(Math.round(k.units)),
+    sub: `${k.avgUnitsPerOrder.toFixed(1)} units / order`
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "MOM Change",
+    value: k.momChange == null ? '—' : (k.momChange >= 0 ? '+' : '') + k.momChange.toFixed(1) + '%',
+    sub: k.momLabel
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "kpi-grid"
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    label: "Active Buyers",
+    value: fmtNum(k.buyers),
+    sub: "unique accounts"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Markets",
+    value: fmtNum(k.states),
+    sub: "states with sales"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Gross Sales",
+    value: fmtMoney(k.gross),
+    sub: "before discounts"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Discounts",
+    value: fmtMoney(k.discounts),
+    sub: k.gross ? (k.discounts / k.gross * 100).toFixed(1) + '% of gross' : '—'
+  })), /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Revenue ", /*#__PURE__*/React.createElement("em", null, "over time")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, timeSeries.length, " days")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      height: 300
+    }
+  }, /*#__PURE__*/React.createElement(ResponsiveContainer, {
+    width: "100%",
+    height: "100%"
+  }, /*#__PURE__*/React.createElement(AreaChart, {
+    data: timeSeries,
+    margin: {
+      top: 12,
+      right: 12,
+      left: 0,
+      bottom: 0
+    }
+  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
+    id: "rev",
+    x1: "0",
+    y1: "0",
+    x2: "0",
+    y2: "1"
+  }, /*#__PURE__*/React.createElement("stop", {
+    offset: "0%",
+    stopColor: "#68ba7f",
+    stopOpacity: 0.4
+  }), /*#__PURE__*/React.createElement("stop", {
+    offset: "100%",
+    stopColor: "#68ba7f",
+    stopOpacity: 0
+  }))), /*#__PURE__*/React.createElement(CartesianGrid, {
+    stroke: "#33543e",
+    strokeDasharray: "2 2",
+    vertical: false
+  }), /*#__PURE__*/React.createElement(XAxis, {
+    dataKey: "date",
+    stroke: "#688a73",
+    tick: {
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono'
+    },
+    tickLine: false,
+    axisLine: {
+      stroke: '#33543e'
+    }
+  }), /*#__PURE__*/React.createElement(YAxis, {
+    stroke: "#688a73",
+    tick: {
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono'
+    },
+    tickLine: false,
+    axisLine: false,
+    tickFormatter: fmtMoney
+  }), /*#__PURE__*/React.createElement(Tooltip, {
+    contentStyle: {
+      background: '#1c2f22',
+      border: '1px solid #33543e',
+      borderRadius: 4,
+      fontSize: 12
+    },
+    labelStyle: {
+      color: '#9dc1a9',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11
+    },
+    formatter: (v, n) => n === 'revenue' ? [fmtMoneyFull(v), 'Revenue'] : [fmtNum(v), n]
+  }), /*#__PURE__*/React.createElement(Area, {
+    type: "monotone",
+    dataKey: "revenue",
+    stroke: "#68ba7f",
+    strokeWidth: 2,
+    fill: "url(#rev)"
+  }))))), /*#__PURE__*/React.createElement(InvoiceTable, {
+    invoices: invoices,
+    title: "Invoices",
+    accent: "var(--accent)"
+  }), /*#__PURE__*/React.createElement(ProductBreakdown, {
+    rows: rows,
+    showBrand: brandLabel === 'All Brands'
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Payment ", /*#__PURE__*/React.createElement("em", null, "status")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, "AR mix")), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement(RankList, {
+    data: paymentMix
+  }))), /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-half"
+  }, /*#__PURE__*/React.createElement(RankCard, {
+    title: "Top products",
+    data: topProducts
+  }), /*#__PURE__*/React.createElement(RankCard, {
+    title: "Top buyers",
+    data: topBuyers
+  }))), /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Sales ", /*#__PURE__*/React.createElement("em", null, "by rep")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, byRep.length, " reps")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      height: 360
+    }
+  }, /*#__PURE__*/React.createElement(ResponsiveContainer, {
+    width: "100%",
+    height: "100%"
+  }, /*#__PURE__*/React.createElement(BarChart, {
+    data: byRep,
+    layout: "vertical",
+    margin: {
+      top: 8,
+      right: 16,
+      left: 8,
+      bottom: 8
+    }
+  }, /*#__PURE__*/React.createElement(CartesianGrid, {
+    stroke: "#33543e",
+    strokeDasharray: "2 2",
+    horizontal: false
+  }), /*#__PURE__*/React.createElement(XAxis, {
+    type: "number",
+    stroke: "#688a73",
+    tick: {
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono'
+    },
+    tickFormatter: fmtMoney,
+    axisLine: false,
+    tickLine: false
+  }), /*#__PURE__*/React.createElement(YAxis, {
+    type: "category",
+    dataKey: "name",
+    stroke: "#688a73",
+    tick: {
+      fontSize: 11
+    },
+    width: 130,
+    axisLine: false,
+    tickLine: false
+  }), /*#__PURE__*/React.createElement(Tooltip, {
+    contentStyle: {
+      background: '#1c2f22',
+      border: '1px solid #33543e',
+      borderRadius: 4,
+      fontSize: 12
+    },
+    formatter: v => [fmtMoneyFull(v), 'Revenue']
+  }), /*#__PURE__*/React.createElement(Bar, {
+    dataKey: "revenue",
+    fill: "#68ba7f",
+    radius: [0, 2, 2, 0]
+  }))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "By ", /*#__PURE__*/React.createElement("em", null, "category")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, "mix")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      height: 360,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(ResponsiveContainer, {
+    width: "100%",
+    height: "100%"
+  }, /*#__PURE__*/React.createElement(PieChart, null, /*#__PURE__*/React.createElement(Pie, {
+    data: byCategory,
+    dataKey: "revenue",
+    nameKey: "name",
+    cx: "50%",
+    cy: "50%",
+    innerRadius: 60,
+    outerRadius: 110,
+    paddingAngle: 2,
+    stroke: "#15241a",
+    strokeWidth: 2
+  }, byCategory.map((_, i) => /*#__PURE__*/React.createElement(Cell, {
+    key: i,
+    fill: PIE_COLORS[i % PIE_COLORS.length]
+  }))), /*#__PURE__*/React.createElement(Tooltip, {
+    contentStyle: {
+      background: '#1c2f22',
+      border: '1px solid #33543e',
+      borderRadius: 4,
+      fontSize: 12
+    },
+    formatter: v => fmtMoneyFull(v)
+  }), /*#__PURE__*/React.createElement(Legend, {
+    verticalAlign: "bottom",
+    iconType: "square",
+    wrapperStyle: {
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono',
+      color: '#9dc1a9'
+    }
+  }))))))), /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "By ", /*#__PURE__*/React.createElement("em", null, "state")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, "geography")), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement(RankList, {
+    data: byState
+  }))), /*#__PURE__*/React.createElement(MonthlyTable, {
+    months: months
+  }));
 }
 
 // --- Internal stores view ---------------------------------------------------
-function InternalView({ rows, brandLabel }) {
+function InternalView({
+  rows,
+  brandLabel
+}) {
   const k = useMemo(() => kpis(rows), [rows]);
   const byStore = useMemo(() => {
     const m = {};
     rows.forEach(r => {
       const key = r.buyer_name || '—';
-      if (!m[key]) m[key] = { name: key, revenue: 0, units: 0, orders: new Set() };
-      m[key].revenue += r._revenue; m[key].units += r._units;
+      if (!m[key]) m[key] = {
+        name: key,
+        revenue: 0,
+        units: 0,
+        orders: new Set()
+      };
+      m[key].revenue += r._revenue;
+      m[key].units += r._units;
       if (r._invoiceId) m[key].orders.add(r._invoiceId);
     });
-    return Object.values(m).map(s => ({ ...s, orders: s.orders.size })).sort((a, b) => b.revenue - a.revenue);
+    return Object.values(m).map(s => ({
+      ...s,
+      orders: s.orders.size
+    })).sort((a, b) => b.revenue - a.revenue);
   }, [rows]);
   const invoices = useMemo(() => buildInvoices(rows), [rows]);
-
-  return (
-    <div className="internal-zone">
-      <span className="internal-badge">Internal Stores · own segment</span>
-      <div className="section-header" style={{ marginBottom: 16 }}>
-        <h2 className="section-title">Internal <em>store sales</em></h2>
-        <span className="section-meta">{brandLabel} · not in wholesale totals</span>
-      </div>
-
-      <div className="kpi-grid">
-        <Kpi label="Internal Revenue" value={fmtMoney(k.revenue)} sub={`${fmtNum(k.lineItems)} line items`} accent />
-        <Kpi label="Internal Orders" value={fmtNum(k.orders)} sub={`${fmtMoney(k.avgOrder)} avg order`} />
-        <Kpi label="Units Moved" value={fmtNum(Math.round(k.units))} sub={`${k.avgUnitsPerOrder.toFixed(1)} units / order`} />
-        <Kpi label="Stores Active" value={fmtNum(byStore.length)} sub="of 6 internal stores" />
-      </div>
-
-      <section className="section">
-        <div className="section-header"><h2 className="section-title">By <em>store</em></h2><span className="section-meta">{byStore.length} stores</span></div>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="data-table">
-            <thead><tr><th>Store</th><th className="num">Orders</th><th className="num">Units</th><th className="num">Revenue</th></tr></thead>
-            <tbody>
-              {byStore.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-faint)', padding: 28 }}>No internal store activity in this view</td></tr>}
-              {byStore.map((s, i) => (
-                <tr key={i}>
-                  <td style={{ color: 'var(--internal)' }}>{s.name}</td>
-                  <td className="num dim">{fmtNum(s.orders)}</td>
-                  <td className="num">{fmtNum(Math.round(s.units))}</td>
-                  <td className="num"><strong>{fmtMoneyFull(s.revenue)}</strong></td>
-                </tr>
-              ))}
-              {byStore.length > 0 && (
-                <tr style={{ background: 'var(--bg-elev-2)', fontWeight: 600 }}>
-                  <td>TOTAL</td>
-                  <td className="num dim">{fmtNum(byStore.reduce((s, x) => s + x.orders, 0))}</td>
-                  <td className="num">{fmtNum(Math.round(byStore.reduce((s, x) => s + x.units, 0)))}</td>
-                  <td className="num" style={{ color: 'var(--internal)' }}>{fmtMoneyFull(byStore.reduce((s, x) => s + x.revenue, 0))}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <InvoiceTable invoices={invoices} title="Internal invoices" accent="var(--internal)" />
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    className: "internal-zone"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "internal-badge"
+  }, "Internal Stores \xB7 own segment"), /*#__PURE__*/React.createElement("div", {
+    className: "section-header",
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Internal ", /*#__PURE__*/React.createElement("em", null, "store sales")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, brandLabel, " \xB7 not in wholesale totals")), /*#__PURE__*/React.createElement("div", {
+    className: "kpi-grid"
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    label: "Internal Revenue",
+    value: fmtMoney(k.revenue),
+    sub: `${fmtNum(k.lineItems)} line items`,
+    accent: true
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Internal Orders",
+    value: fmtNum(k.orders),
+    sub: `${fmtMoney(k.avgOrder)} avg order`
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Units Moved",
+    value: fmtNum(Math.round(k.units)),
+    sub: `${k.avgUnitsPerOrder.toFixed(1)} units / order`
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Stores Active",
+    value: fmtNum(byStore.length),
+    sub: "of 6 internal stores"
+  })), /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "By ", /*#__PURE__*/React.createElement("em", null, "store")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, byStore.length, " stores")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "data-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Store"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Orders"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Units"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Revenue"))), /*#__PURE__*/React.createElement("tbody", null, byStore.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: "4",
+    style: {
+      textAlign: 'center',
+      color: 'var(--text-faint)',
+      padding: 28
+    }
+  }, "No internal store activity in this view")), byStore.map((s, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", {
+    style: {
+      color: 'var(--internal)'
+    }
+  }, s.name), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtNum(s.orders)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtNum(Math.round(s.units))), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", null, fmtMoneyFull(s.revenue))))), byStore.length > 0 && /*#__PURE__*/React.createElement("tr", {
+    style: {
+      background: 'var(--bg-elev-2)',
+      fontWeight: 600
+    }
+  }, /*#__PURE__*/React.createElement("td", null, "TOTAL"), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtNum(byStore.reduce((s, x) => s + x.orders, 0))), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtNum(Math.round(byStore.reduce((s, x) => s + x.units, 0)))), /*#__PURE__*/React.createElement("td", {
+    className: "num",
+    style: {
+      color: 'var(--internal)'
+    }
+  }, fmtMoneyFull(byStore.reduce((s, x) => s + x.revenue, 0)))))))), /*#__PURE__*/React.createElement(InvoiceTable, {
+    invoices: invoices,
+    title: "Internal invoices",
+    accent: "var(--internal)"
+  }));
 }
 
 // --- All-brands overview ----------------------------------------------------
-function BrandOverview({ kept }) {
+function BrandOverview({
+  kept
+}) {
   const byBrand = useMemo(() => {
     const m = {};
     kept.forEach(r => {
       const b = r.brand;
-      if (!m[b]) m[b] = { name: b, wholesale: 0, internal: 0, units: 0, orders: new Set() };
-      if (r._bucket === 'internal') m[b].internal += r._revenue; else m[b].wholesale += r._revenue;
+      if (!m[b]) m[b] = {
+        name: b,
+        wholesale: 0,
+        internal: 0,
+        units: 0,
+        orders: new Set()
+      };
+      if (r._bucket === 'internal') m[b].internal += r._revenue;else m[b].wholesale += r._revenue;
       m[b].units += r._units;
       if (r._invoiceId) m[b].orders.add(r._invoiceId);
     });
-    return Object.values(m).map(b => ({ ...b, orders: b.orders.size, total: b.wholesale + b.internal }))
-      .sort((a, b) => b.total - a.total);
+    return Object.values(m).map(b => ({
+      ...b,
+      orders: b.orders.size,
+      total: b.wholesale + b.internal
+    })).sort((a, b) => b.total - a.total);
   }, [kept]);
-
   if (byBrand.length <= 1) return null; // nothing to compare until multiple brands are pulled
 
-  return (
-    <section className="section">
-      <div className="section-header"><h2 className="section-title">Brand <em>comparison</em></h2><span className="section-meta">{byBrand.length} brands</span></div>
-      <div className="grid-2">
-        <div className="card" style={{ height: 340 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={byBrand} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-              <CartesianGrid stroke="#33543e" strokeDasharray="2 2" horizontal={false} />
-              <XAxis type="number" stroke="#688a73" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={fmtMoney} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" stroke="#688a73" tick={{ fontSize: 11 }} width={150} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#1c2f22', border: '1px solid #33543e', borderRadius: 4, fontSize: 12 }} formatter={(v, n) => [fmtMoneyFull(v), n === 'wholesale' ? 'Wholesale' : 'Internal']} />
-              <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#9dc1a9' }} />
-              <Bar dataKey="wholesale" stackId="a" fill="#68ba7f" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="internal" stackId="a" fill="#cfffdc" radius={[0, 2, 2, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table className="data-table">
-            <thead><tr><th>Brand</th><th className="num">Wholesale</th><th className="num">Internal</th><th className="num">Total</th></tr></thead>
-            <tbody>
-              {byBrand.map((b, i) => (
-                <tr key={i}>
-                  <td>{b.name}</td>
-                  <td className="num">{fmtMoney(b.wholesale)}</td>
-                  <td className="num" style={{ color: 'var(--internal)' }}>{fmtMoney(b.internal)}</td>
-                  <td className="num"><strong>{fmtMoney(b.total)}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
+  return /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Brand ", /*#__PURE__*/React.createElement("em", null, "comparison")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, byBrand.length, " brands")), /*#__PURE__*/React.createElement("div", {
+    className: "grid-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      height: 340
+    }
+  }, /*#__PURE__*/React.createElement(ResponsiveContainer, {
+    width: "100%",
+    height: "100%"
+  }, /*#__PURE__*/React.createElement(BarChart, {
+    data: byBrand,
+    layout: "vertical",
+    margin: {
+      top: 8,
+      right: 16,
+      left: 8,
+      bottom: 8
+    }
+  }, /*#__PURE__*/React.createElement(CartesianGrid, {
+    stroke: "#33543e",
+    strokeDasharray: "2 2",
+    horizontal: false
+  }), /*#__PURE__*/React.createElement(XAxis, {
+    type: "number",
+    stroke: "#688a73",
+    tick: {
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono'
+    },
+    tickFormatter: fmtMoney,
+    axisLine: false,
+    tickLine: false
+  }), /*#__PURE__*/React.createElement(YAxis, {
+    type: "category",
+    dataKey: "name",
+    stroke: "#688a73",
+    tick: {
+      fontSize: 11
+    },
+    width: 150,
+    axisLine: false,
+    tickLine: false
+  }), /*#__PURE__*/React.createElement(Tooltip, {
+    contentStyle: {
+      background: '#1c2f22',
+      border: '1px solid #33543e',
+      borderRadius: 4,
+      fontSize: 12
+    },
+    formatter: (v, n) => [fmtMoneyFull(v), n === 'wholesale' ? 'Wholesale' : 'Internal']
+  }), /*#__PURE__*/React.createElement(Legend, {
+    wrapperStyle: {
+      fontSize: 11,
+      fontFamily: 'JetBrains Mono',
+      color: '#9dc1a9'
+    }
+  }), /*#__PURE__*/React.createElement(Bar, {
+    dataKey: "wholesale",
+    stackId: "a",
+    fill: "#68ba7f",
+    radius: [0, 0, 0, 0]
+  }), /*#__PURE__*/React.createElement(Bar, {
+    dataKey: "internal",
+    stackId: "a",
+    fill: "#cfffdc",
+    radius: [0, 2, 2, 0]
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "data-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Brand"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Wholesale"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Internal"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Total"))), /*#__PURE__*/React.createElement("tbody", null, byBrand.map((b, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", null, b.name), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtMoney(b.wholesale)), /*#__PURE__*/React.createElement("td", {
+    className: "num",
+    style: {
+      color: 'var(--internal)'
+    }
+  }, fmtMoney(b.internal)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", null, fmtMoney(b.total))))))))));
 }
 
 // --- Shared compute ---------------------------------------------------------
@@ -820,22 +1252,63 @@ function kpis(rows) {
   const buyers = new Set(rows.map(r => r.buyer_name).filter(Boolean));
   const states = new Set(rows.map(r => r.buyer_state).filter(Boolean));
   const byMonth = {};
-  rows.forEach(r => { if (!r._date) return; const ym = `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}`; byMonth[ym] = (byMonth[ym] || 0) + r._revenue; });
+  rows.forEach(r => {
+    if (!r._date) return;
+    const ym = `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}`;
+    byMonth[ym] = (byMonth[ym] || 0) + r._revenue;
+  });
   const mk = Object.keys(byMonth).sort();
-  let momChange = null, momLabel = '—';
-  if (mk.length >= 2) { const a = byMonth[mk[mk.length - 1]], b = byMonth[mk[mk.length - 2]]; if (b) { momChange = ((a - b) / b) * 100; momLabel = mk[mk.length - 1] + ' vs ' + mk[mk.length - 2]; } }
-  return { revenue, gross, discounts, units, orders: orderIds.size, buyers: buyers.size, states: states.size,
-    avgOrder: orderIds.size ? revenue / orderIds.size : 0, avgUnitsPerOrder: orderIds.size ? units / orderIds.size : 0,
-    momChange, momLabel, lineItems: rows.length };
+  let momChange = null,
+    momLabel = '—';
+  if (mk.length >= 2) {
+    const a = byMonth[mk[mk.length - 1]],
+      b = byMonth[mk[mk.length - 2]];
+    if (b) {
+      momChange = (a - b) / b * 100;
+      momLabel = mk[mk.length - 1] + ' vs ' + mk[mk.length - 2];
+    }
+  }
+  return {
+    revenue,
+    gross,
+    discounts,
+    units,
+    orders: orderIds.size,
+    buyers: buyers.size,
+    states: states.size,
+    avgOrder: orderIds.size ? revenue / orderIds.size : 0,
+    avgUnitsPerOrder: orderIds.size ? units / orderIds.size : 0,
+    momChange,
+    momLabel,
+    lineItems: rows.length
+  };
 }
 function series(rows) {
   const m = {};
-  rows.forEach(r => { if (!r._date) return; const key = ymdStr(r._date); if (!m[key]) m[key] = { date: key, revenue: 0 }; m[key].revenue += r._revenue; });
+  rows.forEach(r => {
+    if (!r._date) return;
+    const key = ymdStr(r._date);
+    if (!m[key]) m[key] = {
+      date: key,
+      revenue: 0
+    };
+    m[key].revenue += r._revenue;
+  });
   return Object.values(m).sort((a, b) => a.date.localeCompare(b.date));
 }
 function groupSum(rows, key, n = 10) {
   const m = {};
-  rows.forEach(r => { const k = r[key]; if (!k) return; if (!m[k]) m[k] = { name: k, revenue: 0, units: 0 }; m[k].revenue += r._revenue; m[k].units += r._units; });
+  rows.forEach(r => {
+    const k = r[key];
+    if (!k) return;
+    if (!m[k]) m[k] = {
+      name: k,
+      revenue: 0,
+      units: 0
+    };
+    m[k].revenue += r._revenue;
+    m[k].units += r._units;
+  });
   return Object.values(m).sort((a, b) => b.revenue - a.revenue).slice(0, n);
 }
 function monthly(rows) {
@@ -843,334 +1316,833 @@ function monthly(rows) {
   rows.forEach(r => {
     if (!r._date) return;
     const key = `${r._date.getFullYear()}-${String(r._date.getMonth() + 1).padStart(2, '0')}`;
-    if (!m[key]) m[key] = { key, monthName: r._date.toLocaleString('en-US', { month: 'long', year: 'numeric' }), units: 0, gross: 0, discounts: 0, net: 0 };
-    m[key].units += r._units; m[key].gross += r._gross; m[key].discounts += r._discount; m[key].net += r._revenue;
+    if (!m[key]) m[key] = {
+      key,
+      monthName: r._date.toLocaleString('en-US', {
+        month: 'long',
+        year: 'numeric'
+      }),
+      units: 0,
+      gross: 0,
+      discounts: 0,
+      net: 0
+    };
+    m[key].units += r._units;
+    m[key].gross += r._gross;
+    m[key].discounts += r._discount;
+    m[key].net += r._revenue;
   });
   const sorted = Object.values(m).sort((a, b) => a.key.localeCompare(b.key));
-  return sorted.map((x, i) => { const prev = i > 0 ? sorted[i - 1].net : 0; const mom = prev ? ((x.net - prev) / prev) * 100 : null; return { ...x, mom }; });
+  return sorted.map((x, i) => {
+    const prev = i > 0 ? sorted[i - 1].net : 0;
+    const mom = prev ? (x.net - prev) / prev * 100 : null;
+    return {
+      ...x,
+      mom
+    };
+  });
 }
 function buildInvoices(rows) {
   const m = {};
   rows.forEach(r => {
-    const id = r._invoiceId; if (!id) return;
-    if (!m[id]) m[id] = { id, invoice: r._invoice, date: r.order_date ? ymdStr(r._date) : '—', _t: r._date ? r._date.getTime() : 0,
-      buyer: r.buyer_name || '—', rep: r.sales_rep || '—', state: r.buyer_state || '—', status: r.payment_status || 'Unknown', brand: r.brand, lineItems: 0, units: 0, revenue: 0, discount: 0 };
-    m[id].lineItems += 1; m[id].units += r._units; m[id].revenue += r._revenue; m[id].discount += r._discount;
+    const id = r._invoiceId;
+    if (!id) return;
+    if (!m[id]) m[id] = {
+      id,
+      invoice: r._invoice,
+      date: r.order_date ? ymdStr(r._date) : '—',
+      _t: r._date ? r._date.getTime() : 0,
+      buyer: r.buyer_name || '—',
+      rep: r.sales_rep || '—',
+      state: r.buyer_state || '—',
+      status: r.payment_status || 'Unknown',
+      brand: r.brand,
+      lineItems: 0,
+      units: 0,
+      revenue: 0,
+      discount: 0
+    };
+    m[id].lineItems += 1;
+    m[id].units += r._units;
+    m[id].revenue += r._revenue;
+    m[id].discount += r._discount;
   });
   return Object.values(m).sort((a, b) => b._t - a._t);
 }
 
 // --- Presentational components ----------------------------------------------
-function MonthlyTable({ months }) {
+function MonthlyTable({
+  months
+}) {
   if (!months.length) return null;
-  const tot = months.reduce((a, m) => ({ units: a.units + m.units, gross: a.gross + m.gross, discounts: a.discounts + m.discounts, net: a.net + m.net }), { units: 0, gross: 0, discounts: 0, net: 0 });
-  return (
-    <section className="section">
-      <div className="section-header"><h2 className="section-title">Monthly <em>breakdown</em></h2><span className="section-meta">{months.length} months</span></div>
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto' }}>
-        <table className="data-table">
-          <thead><tr><th>Month</th><th className="num">Units</th><th className="num">Gross</th><th className="num">Discounts</th><th className="num">Net Sales</th><th className="num">MOM ±</th></tr></thead>
-          <tbody>
-            {months.map((m, i) => (
-              <tr key={i}>
-                <td>{m.monthName}</td>
-                <td className="num">{fmtNum(Math.round(m.units))}</td>
-                <td className="num dim">{fmtMoneyFull(m.gross)}</td>
-                <td className="num dim">{fmtMoneyFull(m.discounts)}</td>
-                <td className="num"><strong>{fmtMoneyFull(m.net)}</strong></td>
-                <td className="num" style={{ color: m.mom == null ? 'var(--text-faint)' : m.mom >= 0 ? 'var(--accent)' : 'var(--rose)' }}>{m.mom == null ? '—' : (m.mom >= 0 ? '+' : '') + m.mom.toFixed(1) + '%'}</td>
-              </tr>
-            ))}
-            <tr style={{ background: 'var(--bg-elev-2)', fontWeight: 600 }}>
-              <td>TOTAL</td>
-              <td className="num">{fmtNum(Math.round(tot.units))}</td>
-              <td className="num dim">{fmtMoneyFull(tot.gross)}</td>
-              <td className="num dim">{fmtMoneyFull(tot.discounts)}</td>
-              <td className="num"><strong style={{ color: 'var(--accent)' }}>{fmtMoneyFull(tot.net)}</strong></td>
-              <td className="num dim">—</td>
-            </tr>
-          </tbody>
-        </table>
-      </div></div>
-    </section>
-  );
+  const tot = months.reduce((a, m) => ({
+    units: a.units + m.units,
+    gross: a.gross + m.gross,
+    discounts: a.discounts + m.discounts,
+    net: a.net + m.net
+  }), {
+    units: 0,
+    gross: 0,
+    discounts: 0,
+    net: 0
+  });
+  return /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Monthly ", /*#__PURE__*/React.createElement("em", null, "breakdown")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, months.length, " months")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowX: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "data-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Month"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Units"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Gross"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Discounts"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Net Sales"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "MOM \xB1"))), /*#__PURE__*/React.createElement("tbody", null, months.map((m, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", null, m.monthName), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtNum(Math.round(m.units))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(m.gross)), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(m.discounts)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", null, fmtMoneyFull(m.net))), /*#__PURE__*/React.createElement("td", {
+    className: "num",
+    style: {
+      color: m.mom == null ? 'var(--text-faint)' : m.mom >= 0 ? 'var(--accent)' : 'var(--rose)'
+    }
+  }, m.mom == null ? '—' : (m.mom >= 0 ? '+' : '') + m.mom.toFixed(1) + '%'))), /*#__PURE__*/React.createElement("tr", {
+    style: {
+      background: 'var(--bg-elev-2)',
+      fontWeight: 600
+    }
+  }, /*#__PURE__*/React.createElement("td", null, "TOTAL"), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtNum(Math.round(tot.units))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(tot.gross)), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(tot.discounts)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, fmtMoneyFull(tot.net))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, "\u2014")))))));
 }
-
-function InvoiceTable({ invoices, title, accent }) {
-  return (
-    <section className="section">
-      <div className="section-header"><h2 className="section-title">{title} <em>· one row per order</em></h2><span className="section-meta">{fmtNum(invoices.length)} invoices</span></div>
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto', maxHeight: 480 }}>
-        <table className="data-table">
-          <thead><tr><th>Invoice #</th><th>Date</th><th>Buyer</th><th>Brand</th><th>Rep</th><th className="num">Lines</th><th className="num">Units</th><th className="num">Revenue</th><th>Payment</th></tr></thead>
-          <tbody>
-            {invoices.length === 0 && <tr><td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-faint)', padding: 28 }}>No invoices in this view</td></tr>}
-            {invoices.slice(0, 150).map((inv, i) => (
-              <tr key={i}>
-                <td className="font-mono" style={{ color: accent }}>{inv.invoice}</td>
-                <td className="dim font-mono">{inv.date}</td>
-                <td>{inv.buyer}</td>
-                <td className="dim">{inv.brand}</td>
-                <td className="dim">{inv.rep}</td>
-                <td className="num dim">{fmtNum(inv.lineItems)}</td>
-                <td className="num"><strong>{fmtNum(Math.round(inv.units))}</strong></td>
-                <td className="num">{fmtMoneyFull(inv.revenue)}</td>
-                <td><StatusPill status={inv.status} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {invoices.length > 150 && <div style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>Showing 150 of {fmtNum(invoices.length)} · narrow with filters</div>}
-      </div>
-    </section>
-  );
+function InvoiceTable({
+  invoices,
+  title,
+  accent
+}) {
+  return /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, title, " ", /*#__PURE__*/React.createElement("em", null, "\xB7 one row per order")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, fmtNum(invoices.length), " invoices")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowX: 'auto',
+      maxHeight: 480
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "data-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Invoice #"), /*#__PURE__*/React.createElement("th", null, "Date"), /*#__PURE__*/React.createElement("th", null, "Buyer"), /*#__PURE__*/React.createElement("th", null, "Brand"), /*#__PURE__*/React.createElement("th", null, "Rep"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Lines"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Units"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Revenue"), /*#__PURE__*/React.createElement("th", null, "Payment"))), /*#__PURE__*/React.createElement("tbody", null, invoices.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: "9",
+    style: {
+      textAlign: 'center',
+      color: 'var(--text-faint)',
+      padding: 28
+    }
+  }, "No invoices in this view")), invoices.slice(0, 150).map((inv, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "font-mono",
+    style: {
+      color: accent
+    }
+  }, inv.invoice), /*#__PURE__*/React.createElement("td", {
+    className: "dim font-mono"
+  }, inv.date), /*#__PURE__*/React.createElement("td", null, inv.buyer), /*#__PURE__*/React.createElement("td", {
+    className: "dim"
+  }, inv.brand), /*#__PURE__*/React.createElement("td", {
+    className: "dim"
+  }, inv.rep), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtNum(inv.lineItems)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", null, fmtNum(Math.round(inv.units)))), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtMoneyFull(inv.revenue)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(StatusPill, {
+    status: inv.status
+  }))))))), invoices.length > 150 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px 16px',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      color: 'var(--text-faint)',
+      textAlign: 'center',
+      borderTop: '1px solid var(--border)'
+    }
+  }, "Showing 150 of ", fmtNum(invoices.length), " \xB7 narrow with filters")));
 }
-
-function Topbar({ fetchedAt, data, keptCount, excludedCount }) {
+function Topbar({
+  fetchedAt,
+  data,
+  keptCount,
+  excludedCount
+}) {
   const ago = Math.floor((Date.now() - fetchedAt.getTime()) / 60000);
-  return (
-    <div className="topbar">
-      <div className="brand-mark">
-        <img src="logo1.png" alt="" style={{ height: 64, width: 'auto', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
-        <div>
-          <h1 className="brand-name">Medfarms <em>· Multi-Brand</em></h1>
-          <div className="brand-tag">Michigan · 100 Shafer Processing · LeafLink</div>
-        </div>
-      </div>
-      <div className="topbar-meta">
-        <span><strong>{fmtNum(keptCount)}</strong> rows · <span style={{ color: 'var(--rose)' }}>{fmtNum(excludedCount)} excluded</span></span>
-        <span>·</span>
-        <span>Updated {ago < 1 ? 'just now' : ago + 'm ago'}</span>
-        <span className="pulse"></span>
-      </div>
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    className: "topbar"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "brand-mark"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: "logo1.png",
+    alt: "",
+    style: {
+      height: 64,
+      width: 'auto',
+      flexShrink: 0
+    },
+    onError: e => {
+      e.target.style.display = 'none';
+    }
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
+    className: "brand-name"
+  }, "Medfarms ", /*#__PURE__*/React.createElement("em", null, "\xB7 Multi-Brand")), /*#__PURE__*/React.createElement("div", {
+    className: "brand-tag"
+  }, "Michigan \xB7 100 Shafer Processing \xB7 LeafLink"))), /*#__PURE__*/React.createElement("div", {
+    className: "topbar-meta"
+  }, /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, fmtNum(keptCount)), " rows \xB7 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--rose)'
+    }
+  }, fmtNum(excludedCount), " excluded")), /*#__PURE__*/React.createElement("span", null, "\xB7"), /*#__PURE__*/React.createElement("span", null, "Updated ", ago < 1 ? 'just now' : ago + 'm ago'), /*#__PURE__*/React.createElement("span", {
+    className: "pulse"
+  })));
 }
-
-function TabBar({ brandTabs, otherInfo, active, setActive, otherSub, setOtherSub, kept }) {
+function TabBar({
+  brandTabs,
+  otherInfo,
+  active,
+  setActive,
+  otherSub,
+  setOtherSub,
+  kept
+}) {
   const [open, setOpen] = useState(false);
   const allRev = kept.filter(r => r._bucket === 'wholesale').reduce((s, r) => s + r._revenue, 0);
   const isOther = active === OTHER_BRANDS_LABEL;
-  return (
-    <div className="tabbar">
-      <button className={'tab tab-all' + (active === 'ALL' ? ' active' : '')} onClick={() => { setActive('ALL'); setOpen(false); }}>
-        <span className="tab-name">All Brands</span>
-        <span className="tab-sub">{fmtMoney(allRev)} wholesale</span>
-      </button>
-      {brandTabs.map(b => (
-        <button key={b.name} className={'tab' + (active === b.name ? ' active' : '')} onClick={() => { setActive(b.name); setOpen(false); }}>
-          <span className="tab-name">{b.name}</span>
-          <span className="tab-sub">{fmtMoney(b.rev)}</span>
-        </button>
-      ))}
-      {otherInfo && (
-        <div style={{ position: 'relative' }}>
-          <button
-            className={'tab' + (isOther ? ' active' : '')}
-            onClick={() => { setActive(OTHER_BRANDS_LABEL); setOpen(o => !o); }}
-            title="Click to see the brands grouped here"
-          >
-            <span className="tab-name">Other Brands <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>{open ? '▴' : '▾'}</span></span>
-            <span className="tab-sub">{otherSub ? otherSub : fmtMoney(otherInfo.rev)}</span>
-          </button>
-          {isOther && open && (
-            <div className="other-menu">
-              <button className={'other-item' + (!otherSub ? ' sel' : '')} onClick={() => { setOtherSub(''); setOpen(false); }}>
-                <span>All other brands</span>
-                <span className="other-rev">{fmtMoney(otherInfo.constituents.reduce((s, c) => s + c.rev, 0))}</span>
-              </button>
-              {otherInfo.constituents.map(c => (
-                <button key={c.name} className={'other-item' + (otherSub === c.name ? ' sel' : '')} onClick={() => { setOtherSub(c.name); setOpen(false); }}>
-                  <span>{c.name}</span>
-                  <span className="other-rev">{fmtMoney(c.rev)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tabbar"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'tab tab-all' + (active === 'ALL' ? ' active' : ''),
+    onClick: () => {
+      setActive('ALL');
+      setOpen(false);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tab-name"
+  }, "All Brands"), /*#__PURE__*/React.createElement("span", {
+    className: "tab-sub"
+  }, fmtMoney(allRev), " wholesale")), brandTabs.map(b => /*#__PURE__*/React.createElement("button", {
+    key: b.name,
+    className: 'tab' + (active === b.name ? ' active' : ''),
+    onClick: () => {
+      setActive(b.name);
+      setOpen(false);
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tab-name"
+  }, b.name), /*#__PURE__*/React.createElement("span", {
+    className: "tab-sub"
+  }, fmtMoney(b.rev)))), otherInfo && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'tab' + (isOther ? ' active' : ''),
+    onClick: () => {
+      setActive(OTHER_BRANDS_LABEL);
+      setOpen(o => !o);
+    },
+    title: "Click to see the brands grouped here"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tab-name"
+  }, "Other Brands ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--text-faint)',
+      fontSize: 11
+    }
+  }, open ? '▴' : '▾')), /*#__PURE__*/React.createElement("span", {
+    className: "tab-sub"
+  }, otherSub ? otherSub : fmtMoney(otherInfo.rev))), isOther && open && /*#__PURE__*/React.createElement("div", {
+    className: "other-menu"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: 'other-item' + (!otherSub ? ' sel' : ''),
+    onClick: () => {
+      setOtherSub('');
+      setOpen(false);
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "All other brands"), /*#__PURE__*/React.createElement("span", {
+    className: "other-rev"
+  }, fmtMoney(otherInfo.constituents.reduce((s, c) => s + c.rev, 0)))), otherInfo.constituents.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c.name,
+    className: 'other-item' + (otherSub === c.name ? ' sel' : ''),
+    onClick: () => {
+      setOtherSub(c.name);
+      setOpen(false);
+    }
+  }, /*#__PURE__*/React.createElement("span", null, c.name), /*#__PURE__*/React.createElement("span", {
+    className: "other-rev"
+  }, fmtMoney(c.rev)))))));
 }
-
-function AccountRouting({ all, kept, excludedRows }) {
-  const summarize = (rows) => {
+function AccountRouting({
+  all,
+  kept,
+  excludedRows
+}) {
+  const summarize = rows => {
     const m = {};
-    rows.forEach(r => { const b = r.buyer_name || '(blank)'; if (!m[b]) m[b] = { name: b, rev: 0, n: new Set() }; m[b].rev += r._revenue; if (r._invoiceId) m[b].n.add(r._invoiceId); });
-    return Object.values(m).map(x => ({ ...x, n: x.n.size })).sort((a, b) => b.rev - a.rev);
+    rows.forEach(r => {
+      const b = r.buyer_name || '(blank)';
+      if (!m[b]) m[b] = {
+        name: b,
+        rev: 0,
+        n: new Set()
+      };
+      m[b].rev += r._revenue;
+      if (r._invoiceId) m[b].n.add(r._invoiceId);
+    });
+    return Object.values(m).map(x => ({
+      ...x,
+      n: x.n.size
+    })).sort((a, b) => b.rev - a.rev);
   };
   const excluded = summarize(excludedRows);
   const internal = summarize(kept.filter(r => r._bucket === 'internal'));
   // "Dispo - " accounts that landed in wholesale — likely candidates to reclassify.
   const dispoInWholesale = summarize(kept.filter(r => r._bucket === 'wholesale' && /^dispo\s*-/i.test(r.buyer_name || '')));
-  const Row = ({ d, color }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 70px', gap: '2px 12px', padding: '3px 0' }}>
-      <span style={{ color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.name}>{d.name}</span>
-      <span className="num" style={{ textAlign: 'right' }}>{fmtMoney(d.rev)}</span>
-      <span className="num" style={{ textAlign: 'right', color: 'var(--text-faint)' }}>{d.n} ord</span>
-    </div>
-  );
-  return (
-    <details style={{ background: 'var(--bg-elev)', border: '1px solid var(--border)', borderRadius: 4, padding: '10px 16px', marginBottom: 24, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--text-dim)' }}>
-      <summary style={{ cursor: 'pointer', color: 'var(--accent)' }}>ACCOUNT ROUTING — verify which accounts go where (click to expand)</summary>
-      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
-        <div>
-          <div style={{ color: 'var(--rose)', marginBottom: 6, fontWeight: 600 }}>EXCLUDED — removed from all totals ({excluded.length})</div>
-          {excluded.length === 0 ? <div style={{ color: 'var(--text-faint)' }}>none in data</div> : excluded.map((d, i) => <Row key={i} d={d} color="var(--rose)" />)}
-        </div>
-        <div>
-          <div style={{ color: 'var(--internal)', marginBottom: 6, fontWeight: 600 }}>INTERNAL STORES — own segment ({internal.length})</div>
-          {internal.length === 0 ? <div style={{ color: 'var(--text-faint)' }}>none in data</div> : internal.map((d, i) => <Row key={i} d={d} color="var(--internal)" />)}
-        </div>
-        <div>
-          <div style={{ color: 'var(--warm)', marginBottom: 6, fontWeight: 600 }}>"Dispo -" still in WHOLESALE — confirm? ({dispoInWholesale.length})</div>
-          {dispoInWholesale.length === 0 ? <div style={{ color: 'var(--text-faint)' }}>none</div> : dispoInWholesale.map((d, i) => <Row key={i} d={d} color="var(--warm)" />)}
-        </div>
-      </div>
-      <div style={{ marginTop: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
-        To reclassify, edit <span style={{ color: 'var(--accent)' }}>EXCLUDE_ACCOUNTS</span> / <span style={{ color: 'var(--accent)' }}>INTERNAL_STORES</span> at the top of this file. Matching is "name starts with", case-insensitive.
-      </div>
-    </details>
-  );
+  const Row = ({
+    d,
+    color
+  }) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 90px 70px',
+      gap: '2px 12px',
+      padding: '3px 0'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    title: d.name
+  }, d.name), /*#__PURE__*/React.createElement("span", {
+    className: "num",
+    style: {
+      textAlign: 'right'
+    }
+  }, fmtMoney(d.rev)), /*#__PURE__*/React.createElement("span", {
+    className: "num",
+    style: {
+      textAlign: 'right',
+      color: 'var(--text-faint)'
+    }
+  }, d.n, " ord"));
+  return /*#__PURE__*/React.createElement("details", {
+    style: {
+      background: 'var(--bg-elev)',
+      border: '1px solid var(--border)',
+      borderRadius: 4,
+      padding: '10px 16px',
+      marginBottom: 24,
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: 11,
+      color: 'var(--text-dim)'
+    }
+  }, /*#__PURE__*/React.createElement("summary", {
+    style: {
+      cursor: 'pointer',
+      color: 'var(--accent)'
+    }
+  }, "ACCOUNT ROUTING \u2014 verify which accounts go where (click to expand)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--rose)',
+      marginBottom: 6,
+      fontWeight: 600
+    }
+  }, "EXCLUDED \u2014 removed from all totals (", excluded.length, ")"), excluded.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--text-faint)'
+    }
+  }, "none in data") : excluded.map((d, i) => /*#__PURE__*/React.createElement(Row, {
+    key: i,
+    d: d,
+    color: "var(--rose)"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--internal)',
+      marginBottom: 6,
+      fontWeight: 600
+    }
+  }, "INTERNAL STORES \u2014 own segment (", internal.length, ")"), internal.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--text-faint)'
+    }
+  }, "none in data") : internal.map((d, i) => /*#__PURE__*/React.createElement(Row, {
+    key: i,
+    d: d,
+    color: "var(--internal)"
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--warm)',
+      marginBottom: 6,
+      fontWeight: 600
+    }
+  }, "\"Dispo -\" still in WHOLESALE \u2014 confirm? (", dispoInWholesale.length, ")"), dispoInWholesale.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--text-faint)'
+    }
+  }, "none") : dispoInWholesale.map((d, i) => /*#__PURE__*/React.createElement(Row, {
+    key: i,
+    d: d,
+    color: "var(--warm)"
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      color: 'var(--text-faint)',
+      lineHeight: 1.6
+    }
+  }, "To reclassify, edit ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, "EXCLUDE_ACCOUNTS"), " / ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, "INTERNAL_STORES"), " at the top of this file. Matching is \"name starts with\", case-insensitive."));
 }
-
-function QuickRanges({ filters, setFilters }) {
+function QuickRanges({
+  filters,
+  setFilters
+}) {
   const today = new Date();
-  const back = (n) => { const x = new Date(today); x.setDate(x.getDate() - n); return x; };
+  const back = n => {
+    const x = new Date(today);
+    x.setDate(x.getDate() - n);
+    return x;
+  };
   const soy = new Date(today.getFullYear(), 0, 1);
-  const presets = [
-    { label: 'Yesterday', from: ymdStr(back(1)), to: ymdStr(back(1)) },
-    { label: 'Last 7 days', from: ymdStr(back(6)), to: ymdStr(today) },
-    { label: 'Last 30 days', from: ymdStr(back(29)), to: ymdStr(today) },
-    { label: 'Last 90 days', from: ymdStr(back(89)), to: ymdStr(today) },
-    { label: 'YTD', from: ymdStr(soy), to: ymdStr(today) },
-    { label: 'All time', from: '', to: '' },
-  ];
-  const active = (p) => filters.from === p.from && filters.to === p.to;
-  return (
-    <div className="quick-ranges">
-      <span className="quick-label">Quick range</span>
-      {presets.map(p => (
-        <button key={p.label} className={'quick-pill' + (active(p) ? ' active' : '')}
-          onClick={() => setFilters(f => ({ ...f, from: p.from, to: p.to }))}>{p.label}</button>
-      ))}
-    </div>
-  );
+  const presets = [{
+    label: 'Yesterday',
+    from: ymdStr(back(1)),
+    to: ymdStr(back(1))
+  }, {
+    label: 'Last 7 days',
+    from: ymdStr(back(6)),
+    to: ymdStr(today)
+  }, {
+    label: 'Last 30 days',
+    from: ymdStr(back(29)),
+    to: ymdStr(today)
+  }, {
+    label: 'Last 90 days',
+    from: ymdStr(back(89)),
+    to: ymdStr(today)
+  }, {
+    label: 'YTD',
+    from: ymdStr(soy),
+    to: ymdStr(today)
+  }, {
+    label: 'All time',
+    from: '',
+    to: ''
+  }];
+  const active = p => filters.from === p.from && filters.to === p.to;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "quick-ranges"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "quick-label"
+  }, "Quick range"), presets.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.label,
+    className: 'quick-pill' + (active(p) ? ' active' : ''),
+    onClick: () => setFilters(f => ({
+      ...f,
+      from: p.from,
+      to: p.to
+    }))
+  }, p.label)));
 }
-
-function ScopeCards({ seg, scope, setScope }) {
-  const cards = [
-    { key: 'external', label: 'External Accounts', sub: 'wholesale / dispensaries' },
-    { key: 'internal', label: 'Internal Accounts', sub: 'your own stores' },
-    { key: 'total', label: 'Total', sub: 'internal + external' },
-  ];
-  return (
-    <div className="scope-cards">
-      {cards.map(c => (
-        <button key={c.key}
-          className={'scope-card' + (c.key === 'internal' ? ' scope-internal' : '') + (scope === c.key ? ' active' : '')}
-          onClick={() => setScope(c.key)}>
-          <span className="scope-label">{c.label}</span>
-          <span className="scope-value">{fmtMoney(seg[c.key].rev)}</span>
-          <span className="scope-sub">{fmtNum(seg[c.key].orders)} orders · {c.sub}</span>
-        </button>
-      ))}
-    </div>
-  );
+function ScopeCards({
+  seg,
+  scope,
+  setScope
+}) {
+  const cards = [{
+    key: 'external',
+    label: 'External Accounts',
+    sub: 'wholesale / dispensaries'
+  }, {
+    key: 'internal',
+    label: 'Internal Accounts',
+    sub: 'your own stores'
+  }, {
+    key: 'total',
+    label: 'Total',
+    sub: 'internal + external'
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "scope-cards"
+  }, cards.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c.key,
+    className: 'scope-card' + (c.key === 'internal' ? ' scope-internal' : '') + (scope === c.key ? ' active' : ''),
+    onClick: () => setScope(c.key)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "scope-label"
+  }, c.label), /*#__PURE__*/React.createElement("span", {
+    className: "scope-value"
+  }, fmtMoney(seg[c.key].rev)), /*#__PURE__*/React.createElement("span", {
+    className: "scope-sub"
+  }, fmtNum(seg[c.key].orders), " orders \xB7 ", c.sub))));
 }
-
-function FilterBar({ filters, setFilters, distinct, onReset, brands, activeBrand, setActiveBrand }) {
-  const upd = (k, v) => setFilters(f => ({ ...f, [k]: v }));
-  return (
-    <div className="filters">
-      <div className="filter-group" style={{ minWidth: 200 }}>
-        <label className="filter-label">Brand</label>
-        <select className="filter-select" value={activeBrand} onChange={e => setActiveBrand(e.target.value)}>
-          <option value="ALL">All Brands</option>
-          {(brands || []).map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
-        </select>
-      </div>
-      <div className="filter-group"><label className="filter-label">From</label><input type="date" className="filter-input" value={filters.from} onChange={e => upd('from', e.target.value)} /></div>
-      <div className="filter-group"><label className="filter-label">To</label><input type="date" className="filter-input" value={filters.to} onChange={e => upd('to', e.target.value)} /></div>
-      <div className="filter-group"><label className="filter-label">Buyer</label><select className="filter-select" value={filters.buyer} onChange={e => upd('buyer', e.target.value)}><option value="">All</option>{distinct.buyers.map(b => <option key={b}>{b}</option>)}</select></div>
-      <div className="filter-group"><label className="filter-label">Sales Rep</label><select className="filter-select" value={filters.rep} onChange={e => upd('rep', e.target.value)}><option value="">All</option>{distinct.reps.map(b => <option key={b}>{b}</option>)}</select></div>
-      <div className="filter-group"><label className="filter-label">State</label><select className="filter-select" value={filters.state} onChange={e => upd('state', e.target.value)}><option value="">All</option>{distinct.states.map(b => <option key={b}>{b}</option>)}</select></div>
-      <div className="filter-group"><label className="filter-label">Payment</label><select className="filter-select" value={filters.status} onChange={e => upd('status', e.target.value)}><option value="">All</option>{distinct.statuses.map(b => <option key={b}>{b}</option>)}</select></div>
-      <div className="filter-group"><label className="filter-label">Search</label><input type="text" className="filter-input" placeholder="invoice / buyer / product…" value={filters.search} onChange={e => upd('search', e.target.value)} /></div>
-      <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-        <label className="filter-label" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 'auto', paddingBottom: 9 }}>
-          <input type="checkbox" checked={filters.excludeSamples} onChange={e => upd('excludeSamples', e.target.checked)} style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-          Exclude samples
-        </label>
-      </div>
-      <button className="filter-reset" onClick={onReset}>Reset</button>
-    </div>
-  );
+function FilterBar({
+  filters,
+  setFilters,
+  distinct,
+  onReset,
+  brands,
+  activeBrand,
+  setActiveBrand
+}) {
+  const upd = (k, v) => setFilters(f => ({
+    ...f,
+    [k]: v
+  }));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "filters"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "filter-group",
+    style: {
+      minWidth: 200
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "Brand"), /*#__PURE__*/React.createElement("select", {
+    className: "filter-select",
+    value: activeBrand,
+    onChange: e => setActiveBrand(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "ALL"
+  }, "All Brands"), (brands || []).map(b => /*#__PURE__*/React.createElement("option", {
+    key: b.name,
+    value: b.name
+  }, b.name)))), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "From"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: "filter-input",
+    value: filters.from,
+    onChange: e => upd('from', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "To"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: "filter-input",
+    value: filters.to,
+    onChange: e => upd('to', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "Buyer"), /*#__PURE__*/React.createElement("select", {
+    className: "filter-select",
+    value: filters.buyer,
+    onChange: e => upd('buyer', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All"), distinct.buyers.map(b => /*#__PURE__*/React.createElement("option", {
+    key: b
+  }, b)))), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "Sales Rep"), /*#__PURE__*/React.createElement("select", {
+    className: "filter-select",
+    value: filters.rep,
+    onChange: e => upd('rep', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All"), distinct.reps.map(b => /*#__PURE__*/React.createElement("option", {
+    key: b
+  }, b)))), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "State"), /*#__PURE__*/React.createElement("select", {
+    className: "filter-select",
+    value: filters.state,
+    onChange: e => upd('state', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All"), distinct.states.map(b => /*#__PURE__*/React.createElement("option", {
+    key: b
+  }, b)))), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "Payment"), /*#__PURE__*/React.createElement("select", {
+    className: "filter-select",
+    value: filters.status,
+    onChange: e => upd('status', e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "All"), distinct.statuses.map(b => /*#__PURE__*/React.createElement("option", {
+    key: b
+  }, b)))), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label"
+  }, "Search"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    className: "filter-input",
+    placeholder: "invoice / buyer / product\u2026",
+    value: filters.search,
+    onChange: e => upd('search', e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "filter-group",
+    style: {
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "filter-label",
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      cursor: 'pointer',
+      marginTop: 'auto',
+      paddingBottom: 9
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: filters.excludeSamples,
+    onChange: e => upd('excludeSamples', e.target.checked),
+    style: {
+      accentColor: 'var(--accent)',
+      width: 14,
+      height: 14
+    }
+  }), "Exclude samples")), /*#__PURE__*/React.createElement("button", {
+    className: "filter-reset",
+    onClick: onReset
+  }, "Reset"));
 }
-
-function ProductBreakdown({ rows, showBrand }) {
+function ProductBreakdown({
+  rows,
+  showBrand
+}) {
   const data = useMemo(() => {
     const m = {};
     rows.forEach(r => {
-      const k = r.product_name; if (!k) return;
-      if (!m[k]) m[k] = { name: k, line: r.product_type || r.product_line || '—', brand: r.brand || '—', units: 0, gross: 0, discount: 0, net: 0, orders: new Set() };
-      m[k].units += r._units; m[k].gross += r._gross; m[k].discount += r._discount; m[k].net += r._revenue;
+      const k = r.product_name;
+      if (!k) return;
+      if (!m[k]) m[k] = {
+        name: k,
+        line: r.product_type || r.product_line || '—',
+        brand: r.brand || '—',
+        units: 0,
+        gross: 0,
+        discount: 0,
+        net: 0,
+        orders: new Set()
+      };
+      m[k].units += r._units;
+      m[k].gross += r._gross;
+      m[k].discount += r._discount;
+      m[k].net += r._revenue;
       if (r._invoiceId) m[k].orders.add(r._invoiceId);
     });
-    return Object.values(m).map(p => ({ ...p, orders: p.orders.size, avg: p.units ? p.net / p.units : 0 })).sort((a, b) => b.net - a.net);
+    return Object.values(m).map(p => ({
+      ...p,
+      orders: p.orders.size,
+      avg: p.units ? p.net / p.units : 0
+    })).sort((a, b) => b.net - a.net);
   }, [rows]);
   if (!data.length) return null;
-  const tot = data.reduce((a, p) => ({ units: a.units + p.units, gross: a.gross + p.gross, discount: a.discount + p.discount, net: a.net + p.net }), { units: 0, gross: 0, discount: 0, net: 0 });
-  return (
-    <section className="section">
-      <div className="section-header"><h2 className="section-title">Product <em>breakdown</em></h2><span className="section-meta">{fmtNum(data.length)} products</span></div>
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto', maxHeight: 520 }}>
-        <table className="data-table">
-          <thead><tr><th>Product</th>{showBrand && <th>Brand</th>}<th>Line</th><th className="num">Units</th><th className="num">Gross</th><th className="num">Discounts</th><th className="num">Net Sales</th><th className="num">Avg Unit $</th></tr></thead>
-          <tbody>
-            {data.slice(0, 150).map((p, i) => (
-              <tr key={i}>
-                <td>{p.name}</td>
-                {showBrand && <td className="dim">{p.brand}</td>}
-                <td className="dim">{p.line}</td>
-                <td className="num">{fmtNum(Math.round(p.units))}</td>
-                <td className="num dim">{fmtMoneyFull(p.gross)}</td>
-                <td className="num dim">{fmtMoneyFull(p.discount)}</td>
-                <td className="num"><strong>{fmtMoneyFull(p.net)}</strong></td>
-                <td className="num dim">{fmtMoneyFull(p.avg)}</td>
-              </tr>
-            ))}
-            <tr style={{ background: 'var(--bg-elev-2)', fontWeight: 600 }}>
-              <td>TOTAL</td>
-              {showBrand && <td className="dim">—</td>}
-              <td className="dim">—</td>
-              <td className="num">{fmtNum(Math.round(tot.units))}</td>
-              <td className="num dim">{fmtMoneyFull(tot.gross)}</td>
-              <td className="num dim">{fmtMoneyFull(tot.discount)}</td>
-              <td className="num"><strong style={{ color: 'var(--accent)' }}>{fmtMoneyFull(tot.net)}</strong></td>
-              <td className="num dim">—</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      {data.length > 150 && <div style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>Showing top 150 of {fmtNum(data.length)} by net sales · narrow with filters</div>}
-      </div>
-    </section>
-  );
+  const tot = data.reduce((a, p) => ({
+    units: a.units + p.units,
+    gross: a.gross + p.gross,
+    discount: a.discount + p.discount,
+    net: a.net + p.net
+  }), {
+    units: 0,
+    gross: 0,
+    discount: 0,
+    net: 0
+  });
+  return /*#__PURE__*/React.createElement("section", {
+    className: "section"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, "Product ", /*#__PURE__*/React.createElement("em", null, "breakdown")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, fmtNum(data.length), " products")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowX: 'auto',
+      maxHeight: 520
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "data-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Product"), showBrand && /*#__PURE__*/React.createElement("th", null, "Brand"), /*#__PURE__*/React.createElement("th", null, "Line"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Units"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Gross"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Discounts"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Net Sales"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Avg Unit $"))), /*#__PURE__*/React.createElement("tbody", null, data.slice(0, 150).map((p, i) => /*#__PURE__*/React.createElement("tr", {
+    key: i
+  }, /*#__PURE__*/React.createElement("td", null, p.name), showBrand && /*#__PURE__*/React.createElement("td", {
+    className: "dim"
+  }, p.brand), /*#__PURE__*/React.createElement("td", {
+    className: "dim"
+  }, p.line), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtNum(Math.round(p.units))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(p.gross)), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(p.discount)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", null, fmtMoneyFull(p.net))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(p.avg)))), /*#__PURE__*/React.createElement("tr", {
+    style: {
+      background: 'var(--bg-elev-2)',
+      fontWeight: 600
+    }
+  }, /*#__PURE__*/React.createElement("td", null, "TOTAL"), showBrand && /*#__PURE__*/React.createElement("td", {
+    className: "dim"
+  }, "\u2014"), /*#__PURE__*/React.createElement("td", {
+    className: "dim"
+  }, "\u2014"), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, fmtNum(Math.round(tot.units))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(tot.gross)), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, fmtMoneyFull(tot.discount)), /*#__PURE__*/React.createElement("td", {
+    className: "num"
+  }, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--accent)'
+    }
+  }, fmtMoneyFull(tot.net))), /*#__PURE__*/React.createElement("td", {
+    className: "num dim"
+  }, "\u2014"))))), data.length > 150 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px 16px',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      color: 'var(--text-faint)',
+      textAlign: 'center',
+      borderTop: '1px solid var(--border)'
+    }
+  }, "Showing top 150 of ", fmtNum(data.length), " by net sales \xB7 narrow with filters")));
 }
-
-function InvStatus({ status, avail }) {
+function InvStatus({
+  status,
+  avail
+}) {
   const oos = (avail || 0) <= 0;
   const cls = oos ? 'pill-overdue' : 'pill-completed';
-  return <span className={'pill ' + cls}>{status || (oos ? 'out' : 'available')}</span>;
+  return /*#__PURE__*/React.createElement("span", {
+    className: 'pill ' + cls
+  }, status || (oos ? 'out' : 'available'));
 }
-
-function InventorySection({ inventory, activeBrand, otherSub, brandLabel }) {
+function InventorySection({
+  inventory,
+  activeBrand,
+  otherSub,
+  brandLabel
+}) {
   const items = Array.isArray(inventory) ? inventory : [];
   const hasBrand = items.some(p => p && p.brand);
-  const num = (v) => { if (typeof v === 'number') return v; if (v == null || v === '') return null; const n = parseFloat(v); return isNaN(n) ? null : n; };
-  const availOf = (p) => { const a = num(p.available); return a != null ? a : num(p.inventory); };
+  const num = v => {
+    if (typeof v === 'number') return v;
+    if (v == null || v === '') return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+  const availOf = p => {
+    const a = num(p.available);
+    return a != null ? a : num(p.inventory);
+  };
   const showBrandCol = activeBrand === 'ALL' && hasBrand;
   const filtered = useMemo(() => {
     if (activeBrand === 'ALL' || !hasBrand) return items;
@@ -1180,107 +2152,234 @@ function InventorySection({ inventory, activeBrand, otherSub, brandLabel }) {
       return true;
     });
   }, [items, activeBrand, otherSub, hasBrand]);
-  const sorted = useMemo(() => [...filtered].sort((a, b) => { const av = availOf(a), bv = availOf(b); return (bv == null ? -1 : bv) - (av == null ? -1 : av); }), [filtered]);
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    const av = availOf(a),
+      bv = availOf(b);
+    return (bv == null ? -1 : bv) - (av == null ? -1 : av);
+  }), [filtered]);
   const skus = filtered.length;
   const totalUnits = filtered.reduce((s, p) => s + (availOf(p) || 0), 0);
   const totalReserved = filtered.reduce((s, p) => s + (num(p.reserved) || 0), 0);
   const oos = filtered.filter(p => (availOf(p) || 0) <= 0).length;
-
-  return (
-    <section className="section inv-zone">
-      <div className="section-header" style={{ marginBottom: 16 }}>
-        <h2 className="section-title"><span className="inv-badge">Live</span>Current <em>inventory</em></h2>
-        <span className="section-meta">{brandLabel} · as of last scrape</span>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-dim)' }}>
-          <div style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>No inventory loaded yet</div>
-          <div style={{ fontSize: 13, lineHeight: 1.7 }}>Inventory populates on the next scrape. Set <code style={{ fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>LEAFLINK_PULL_INVENTORY</code> to <code style={{ fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>1</code> in the workflow, then run the scraper.</div>
-        </div>
-      ) : (
-        <>
-          <div className="kpi-grid" style={{ marginBottom: 18 }}>
-            <Kpi label="Products In Stock" value={fmtNum(skus)} sub="SKUs in this view" accent />
-            <Kpi label="Units Available" value={fmtNum(Math.round(totalUnits))} sub="sellable on hand" />
-            <Kpi label="Units Reserved" value={fmtNum(Math.round(totalReserved))} sub="committed to orders" />
-            <Kpi label="Out Of Stock" value={fmtNum(oos)} sub="SKUs at zero" />
-          </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto', maxHeight: 520 }}>
-            <table className="data-table">
-              <thead><tr><th>Product</th>{showBrandCol && <th>Brand</th>}<th>Line</th><th className="num">Available</th><th className="num">Reserved</th><th className="num">Total</th><th>Status</th></tr></thead>
-              <tbody>
-                {sorted.slice(0, 200).map((p, i) => {
-                  const a = availOf(p), rsv = num(p.reserved), tt = num(p.inventory);
-                  return (
-                    <tr key={i}>
-                      <td>{p.name || '—'}</td>
-                      {showBrandCol && <td className="dim">{p.brand || '—'}</td>}
-                      <td className="dim">{p.line || '—'}</td>
-                      <td className="num"><strong style={{ color: (a || 0) <= 0 ? 'var(--rose)' : 'var(--text)' }}>{a == null ? '—' : fmtNum(Math.round(a))}</strong></td>
-                      <td className="num dim">{rsv == null ? '—' : fmtNum(Math.round(rsv))}</td>
-                      <td className="num dim">{tt == null ? '—' : fmtNum(Math.round(tt))}</td>
-                      <td><InvStatus status={p.status} avail={a} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {sorted.length > 200 && <div style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>Showing 200 of {fmtNum(sorted.length)} products</div>}
-          </div>
-        </>
-      )}
-    </section>
-  );
+  return /*#__PURE__*/React.createElement("section", {
+    className: "section inv-zone"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "section-header",
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "inv-badge"
+  }, "Live"), "Current ", /*#__PURE__*/React.createElement("em", null, "inventory")), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, brandLabel, " \xB7 as of last scrape")), items.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      textAlign: 'center',
+      padding: '40px 20px',
+      color: 'var(--text-dim)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'Fraunces, serif',
+      fontStyle: 'italic',
+      fontSize: 20,
+      color: 'var(--text)',
+      marginBottom: 8
+    }
+  }, "No inventory loaded yet"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      lineHeight: 1.7
+    }
+  }, "Inventory populates on the next scrape. Set ", /*#__PURE__*/React.createElement("code", {
+    style: {
+      fontFamily: 'JetBrains Mono',
+      color: 'var(--accent)',
+      background: 'var(--bg)',
+      padding: '2px 6px',
+      borderRadius: 4
+    }
+  }, "LEAFLINK_PULL_INVENTORY"), " to ", /*#__PURE__*/React.createElement("code", {
+    style: {
+      fontFamily: 'JetBrains Mono',
+      color: 'var(--accent)',
+      background: 'var(--bg)',
+      padding: '2px 6px',
+      borderRadius: 4
+    }
+  }, "1"), " in the workflow, then run the scraper.")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "kpi-grid",
+    style: {
+      marginBottom: 18
+    }
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    label: "Products In Stock",
+    value: fmtNum(skus),
+    sub: "SKUs in this view",
+    accent: true
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Units Available",
+    value: fmtNum(Math.round(totalUnits)),
+    sub: "sellable on hand"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Units Reserved",
+    value: fmtNum(Math.round(totalReserved)),
+    sub: "committed to orders"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    label: "Out Of Stock",
+    value: fmtNum(oos),
+    sub: "SKUs at zero"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowX: 'auto',
+      maxHeight: 520
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "data-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Product"), showBrandCol && /*#__PURE__*/React.createElement("th", null, "Brand"), /*#__PURE__*/React.createElement("th", null, "Line"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Available"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Reserved"), /*#__PURE__*/React.createElement("th", {
+    className: "num"
+  }, "Total"), /*#__PURE__*/React.createElement("th", null, "Status"))), /*#__PURE__*/React.createElement("tbody", null, sorted.slice(0, 200).map((p, i) => {
+    const a = availOf(p),
+      rsv = num(p.reserved),
+      tt = num(p.inventory);
+    return /*#__PURE__*/React.createElement("tr", {
+      key: i
+    }, /*#__PURE__*/React.createElement("td", null, p.name || '—'), showBrandCol && /*#__PURE__*/React.createElement("td", {
+      className: "dim"
+    }, p.brand || '—'), /*#__PURE__*/React.createElement("td", {
+      className: "dim"
+    }, p.line || '—'), /*#__PURE__*/React.createElement("td", {
+      className: "num"
+    }, /*#__PURE__*/React.createElement("strong", {
+      style: {
+        color: (a || 0) <= 0 ? 'var(--rose)' : 'var(--text)'
+      }
+    }, a == null ? '—' : fmtNum(Math.round(a)))), /*#__PURE__*/React.createElement("td", {
+      className: "num dim"
+    }, rsv == null ? '—' : fmtNum(Math.round(rsv))), /*#__PURE__*/React.createElement("td", {
+      className: "num dim"
+    }, tt == null ? '—' : fmtNum(Math.round(tt))), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(InvStatus, {
+      status: p.status,
+      avail: a
+    })));
+  })))), sorted.length > 200 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px 16px',
+      fontFamily: 'JetBrains Mono',
+      fontSize: 11,
+      color: 'var(--text-faint)',
+      textAlign: 'center',
+      borderTop: '1px solid var(--border)'
+    }
+  }, "Showing 200 of ", fmtNum(sorted.length), " products"))));
 }
-
-function Kpi({ label, value, sub, accent }) {
-  return (<div className={'kpi' + (accent ? ' kpi-accent' : '')}><div className="kpi-label">{label}</div><div className="kpi-value tabular">{value}</div>{sub && <div className="kpi-sub">{sub}</div>}</div>);
+function Kpi({
+  label,
+  value,
+  sub,
+  accent
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: 'kpi' + (accent ? ' kpi-accent' : '')
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kpi-label"
+  }, label), /*#__PURE__*/React.createElement("div", {
+    className: "kpi-value tabular"
+  }, value), sub && /*#__PURE__*/React.createElement("div", {
+    className: "kpi-sub"
+  }, sub));
 }
-function RankCard({ title, data }) {
-  return (<div><div className="section-header"><h2 className="section-title">{title.split(' ')[0]} <em>{title.split(' ').slice(1).join(' ')}</em></h2><span className="section-meta">top {data.length}</span></div><div className="card"><RankList data={data} /></div></div>);
+function RankCard({
+  title,
+  data
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "section-header"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "section-title"
+  }, title.split(' ')[0], " ", /*#__PURE__*/React.createElement("em", null, title.split(' ').slice(1).join(' '))), /*#__PURE__*/React.createElement("span", {
+    className: "section-meta"
+  }, "top ", data.length)), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement(RankList, {
+    data: data
+  })));
 }
-function RankList({ data }) {
+function RankList({
+  data
+}) {
   const max = Math.max(...data.map(d => d.revenue), 1);
-  return (<div className="rank-list">
-    {data.length === 0 && <div style={{ padding: 20, color: 'var(--text-faint)', textAlign: 'center', fontSize: 13 }}>No data</div>}
-    {data.map((d, i) => (<div key={i} className="rank-row"><div className="rank-num">{String(i + 1).padStart(2, '0')}</div><div className="rank-name" title={d.name}>{d.name}</div><div className="rank-value">{fmtMoneyFull(d.revenue)}</div><div className="rank-bar" style={{ width: `calc(${(d.revenue / max * 100).toFixed(1)}% - 80px)` }}></div></div>))}
-  </div>);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rank-list"
+  }, data.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 20,
+      color: 'var(--text-faint)',
+      textAlign: 'center',
+      fontSize: 13
+    }
+  }, "No data"), data.map((d, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "rank-row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "rank-num"
+  }, String(i + 1).padStart(2, '0')), /*#__PURE__*/React.createElement("div", {
+    className: "rank-name",
+    title: d.name
+  }, d.name), /*#__PURE__*/React.createElement("div", {
+    className: "rank-value"
+  }, fmtMoneyFull(d.revenue)), /*#__PURE__*/React.createElement("div", {
+    className: "rank-bar",
+    style: {
+      width: `calc(${(d.revenue / max * 100).toFixed(1)}% - 80px)`
+    }
+  }))));
 }
-function StatusPill({ status }) {
-  if (!status) return <span className="dim">—</span>;
+function StatusPill({
+  status
+}) {
+  if (!status) return /*#__PURE__*/React.createElement("span", {
+    className: "dim"
+  }, "\u2014");
   const s = status.toLowerCase();
-  const cls = (s.includes('paid') && !s.includes('unpaid')) || s.includes('complet') ? 'pill-completed' : s.includes('overdue') ? 'pill-overdue' : 'pill-pending';
-  return <span className={'pill ' + cls}>{status}</span>;
+  const cls = s.includes('paid') && !s.includes('unpaid') || s.includes('complet') ? 'pill-completed' : s.includes('overdue') ? 'pill-overdue' : 'pill-pending';
+  return /*#__PURE__*/React.createElement("span", {
+    className: 'pill ' + cls
+  }, status);
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
 </script>
 
+
 <script>
-/* Fail-loud watchdog: if the React app hasn't mounted a few seconds after load
-   (e.g. a CDN was blocked and the babel script never ran), replace the blank
-   screen with a clear, actionable message instead of nothing. */
+/* Fail-loud watchdog (self-hosted build: libraries load from this repo root). */
 (function () {
   function diagnose() {
     var root = document.getElementById('root');
-    if (!root || root.childElementCount > 0) return; // app mounted (or is showing Loading) — all good
-    var libs = { React: typeof window.React, ReactDOM: typeof window.ReactDOM, Recharts: typeof window.Recharts, Babel: typeof window.Babel, pako: typeof window.pako };
+    if (!root || root.childElementCount > 0) return;
+    var libs = { React: typeof window.React, ReactDOM: typeof window.ReactDOM, Recharts: typeof window.Recharts };
     var missing = Object.keys(libs).filter(function (k) { return libs[k] === 'undefined'; });
     var why = missing.length
-      ? 'These libraries did not load: <b>' + missing.join(', ') + '</b>. That is almost always a blocked CDN — a work network / VPN firewall, or an ad- or script-blocking browser extension — not the dashboard itself.'
+      ? 'These library files did not load: <b>' + missing.join(', ') + '</b>. Make sure all the .js library files were uploaded into the same folder as dashboard.html.'
       : 'The libraries loaded but the app did not render. A hard refresh usually clears this.';
     root.innerHTML =
-      '<div style="max-width:640px;margin:80px auto;padding:28px;background:#1c2f22;border:1px solid #33543e;border-left:3px solid #e0a85a;border-radius:10px;color:#eaf6ed;font-family:Inter,system-ui,sans-serif">'
+      '<div style="max-width:680px;margin:80px auto;padding:28px;background:var(--bg-elev,#161a17);border:1px solid var(--border,#262c28);border-left:3px solid var(--warm,#e0a85a);border-radius:10px;color:var(--text,#e8ebe7);font-family:Inter,system-ui,sans-serif">'
       + '<div style="font-family:Fraunces,serif;font-size:22px;font-style:italic;margin-bottom:10px">Dashboard didn\u2019t load</div>'
-      + '<p style="color:#9dc1a9;line-height:1.7;font-size:14px;margin:0 0 12px">' + why + '</p>'
-      + '<ul style="color:#9dc1a9;line-height:1.85;font-size:13px;margin:0 0 16px 18px">'
-      + '<li>Hard refresh: <b>Ctrl/Cmd + Shift + R</b></li>'
-      + '<li>Try an <b>Incognito</b> window (extensions are disabled there)</li>'
-      + '<li>On a work network or VPN, <b>unpkg.com</b> and <b>jsdelivr.net</b> may be blocked</li>'
-      + '</ul>'
-      + '<button onclick="location.reload()" style="background:#68ba7f;border:none;color:#15241a;font-weight:600;padding:9px 16px;border-radius:7px;cursor:pointer;font-family:JetBrains Mono,monospace;font-size:12px">Reload</button>'
+      + '<p style="color:var(--text-dim,#9aa39c);line-height:1.7;font-size:14px;margin:0 0 12px">' + why + '</p>'
+      + '<button onclick="location.reload()" style="background:var(--accent,#4dd4ff);border:none;color:var(--bg,#0a1220);font-weight:600;padding:9px 16px;border-radius:7px;cursor:pointer;font-family:JetBrains Mono,monospace;font-size:12px">Reload</button>'
       + '</div>';
   }
   setTimeout(diagnose, 5000);
