@@ -75,18 +75,18 @@
     margin-bottom: 0; position: relative;
   }
   .topbar::after {
-    content: ''; position: absolute; left: 0; bottom: -1px; width: 132px; height: 1px;
+    content: ''; position: absolute; left: 0; bottom: -1px; width: 168px; height: 2px;
     background: linear-gradient(90deg, var(--accent), transparent);
   }
-  .brand-mark { display: flex; align-items: center; gap: 18px; }
+  .brand-mark { display: flex; align-items: center; gap: 20px; }
   .brand-name {
-    font-family: 'Fraunces', serif; font-weight: 500; font-size: 30px;
+    font-family: 'Fraunces', serif; font-weight: 500; font-size: 40px;
     letter-spacing: -0.025em; color: var(--text); line-height: 1;
   }
   .brand-name em { color: var(--accent); font-style: italic; font-weight: 400; }
   .brand-tag {
-    margin-top: 7px; font-family: 'JetBrains Mono', monospace; font-size: 9px;
-    text-transform: uppercase; letter-spacing: 0.2em; color: var(--text-faint);
+    margin-top: 9px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.22em; color: var(--text-faint);
   }
   .topbar-meta {
     display: flex; gap: 18px; align-items: center;
@@ -98,27 +98,27 @@
 
   /* Brand tabs */
   .tabbar {
-    display: flex; gap: 4px; flex-wrap: wrap;
+    display: flex; gap: 6px; flex-wrap: wrap;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 28px;
-    padding-top: 6px;
+    margin-bottom: 34px;
+    padding-top: 8px;
   }
   .tab {
     background: transparent; border: none; cursor: pointer;
-    padding: 14px 20px 12px; position: relative;
+    padding: 18px 26px 16px; position: relative;
     font-family: 'Inter', sans-serif; color: var(--text-dim);
-    display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+    display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
     transition: color 0.18s var(--ease), background 0.18s var(--ease);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   }
   .tab:hover { color: var(--text); background: var(--bg-elev); }
-  .tab-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
-  .tab-sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); }
+  .tab-name { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+  .tab-sub { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-faint); }
   .tab.active { color: var(--text); }
   .tab.active .tab-sub { color: var(--accent); }
   .tab.active::after {
-    content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px;
-    background: var(--accent); border-radius: 2px;
+    content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px;
+    background: var(--accent); border-radius: 3px;
   }
   .tab.tab-all .tab-name { font-family: 'Fraunces', serif; font-style: italic; font-weight: 400; }
   .other-menu {
@@ -241,6 +241,21 @@
     display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px;
     text-transform: uppercase; letter-spacing: 0.14em; color: var(--internal);
     border: 1px solid var(--internal-dim); border-radius: 2px; padding: 3px 9px; margin-bottom: 6px;
+  }
+
+  /* Current-inventory zone — allocated, accent-marked block */
+  .inv-zone {
+    border: 1px solid var(--accent-dim);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 26px 26px 30px;
+    background: linear-gradient(180deg, rgba(104,186,127,0.05), transparent 220px);
+  }
+  .inv-badge {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent);
+    border: 1px solid var(--accent-dim); border-radius: 2px; padding: 3px 9px;
+    margin-right: 12px; vertical-align: middle;
   }
 
   /* Status pill */
@@ -555,6 +570,8 @@ function Dashboard({ data }) {
 
       <WholesaleView rows={scopeRows} brandLabel={brandLabel} heading={scopeHeading} />
 
+      <InventorySection inventory={data.inventory} activeBrand={activeBrand} otherSub={otherSub} brandLabel={brandLabel} />
+
       <footer style={{ marginTop: 60, padding: '20px 0', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
         <span>Medfarms · Michigan · Sales Intelligence</span>
         <span>Auto-refresh every 60s</span>
@@ -615,6 +632,15 @@ function WholesaleView({ rows, brandLabel, heading = 'External' }) {
         </div>
       </section>
 
+      <InvoiceTable invoices={invoices} title="Invoices" accent="var(--accent)" />
+
+      <ProductBreakdown rows={rows} showBrand={brandLabel === 'All Brands'} />
+
+      <section className="section">
+        <div className="section-header"><h2 className="section-title">Payment <em>status</em></h2><span className="section-meta">AR mix</span></div>
+        <div className="card"><RankList data={paymentMix} /></div>
+      </section>
+
       <section className="section"><div className="grid-half">
         <RankCard title="Top products" data={topProducts} />
         <RankCard title="Top buyers" data={topBuyers} />
@@ -651,13 +677,12 @@ function WholesaleView({ rows, brandLabel, heading = 'External' }) {
         </div>
       </div></section>
 
-      <section className="section"><div className="grid-half">
-        <div><div className="section-header"><h2 className="section-title">By <em>state</em></h2><span className="section-meta">geography</span></div><div className="card"><RankList data={byState} /></div></div>
-        <div><div className="section-header"><h2 className="section-title">Payment <em>status</em></h2><span className="section-meta">AR mix</span></div><div className="card"><RankList data={paymentMix} /></div></div>
-      </div></section>
+      <section className="section">
+        <div className="section-header"><h2 className="section-title">By <em>state</em></h2><span className="section-meta">geography</span></div>
+        <div className="card"><RankList data={byState} /></div>
+      </section>
 
       <MonthlyTable months={months} />
-      <InvoiceTable invoices={invoices} title="Invoices" accent="var(--accent)" />
     </>
   );
 }
@@ -901,7 +926,7 @@ function Topbar({ fetchedAt, data, keptCount, excludedCount }) {
   return (
     <div className="topbar">
       <div className="brand-mark">
-        <img src="logo1.png" alt="" style={{ height: 46, width: 'auto', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
+        <img src="logo1.png" alt="" style={{ height: 64, width: 'auto', flexShrink: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
         <div>
           <h1 className="brand-name">Medfarms <em>· Multi-Brand</em></h1>
           <div className="brand-tag">Michigan · 100 Shafer Processing · LeafLink</div>
@@ -1075,6 +1100,132 @@ function FilterBar({ filters, setFilters, distinct, onReset, brands, activeBrand
       </div>
       <button className="filter-reset" onClick={onReset}>Reset</button>
     </div>
+  );
+}
+
+function ProductBreakdown({ rows, showBrand }) {
+  const data = useMemo(() => {
+    const m = {};
+    rows.forEach(r => {
+      const k = r.product_name; if (!k) return;
+      if (!m[k]) m[k] = { name: k, line: r.product_type || r.product_line || '—', brand: r.brand || '—', units: 0, gross: 0, discount: 0, net: 0, orders: new Set() };
+      m[k].units += r._units; m[k].gross += r._gross; m[k].discount += r._discount; m[k].net += r._revenue;
+      if (r._invoiceId) m[k].orders.add(r._invoiceId);
+    });
+    return Object.values(m).map(p => ({ ...p, orders: p.orders.size, avg: p.units ? p.net / p.units : 0 })).sort((a, b) => b.net - a.net);
+  }, [rows]);
+  if (!data.length) return null;
+  const tot = data.reduce((a, p) => ({ units: a.units + p.units, gross: a.gross + p.gross, discount: a.discount + p.discount, net: a.net + p.net }), { units: 0, gross: 0, discount: 0, net: 0 });
+  return (
+    <section className="section">
+      <div className="section-header"><h2 className="section-title">Product <em>breakdown</em></h2><span className="section-meta">{fmtNum(data.length)} products</span></div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto', maxHeight: 520 }}>
+        <table className="data-table">
+          <thead><tr><th>Product</th>{showBrand && <th>Brand</th>}<th>Line</th><th className="num">Units</th><th className="num">Gross</th><th className="num">Discounts</th><th className="num">Net Sales</th><th className="num">Avg Unit $</th></tr></thead>
+          <tbody>
+            {data.slice(0, 150).map((p, i) => (
+              <tr key={i}>
+                <td>{p.name}</td>
+                {showBrand && <td className="dim">{p.brand}</td>}
+                <td className="dim">{p.line}</td>
+                <td className="num">{fmtNum(Math.round(p.units))}</td>
+                <td className="num dim">{fmtMoneyFull(p.gross)}</td>
+                <td className="num dim">{fmtMoneyFull(p.discount)}</td>
+                <td className="num"><strong>{fmtMoneyFull(p.net)}</strong></td>
+                <td className="num dim">{fmtMoneyFull(p.avg)}</td>
+              </tr>
+            ))}
+            <tr style={{ background: 'var(--bg-elev-2)', fontWeight: 600 }}>
+              <td>TOTAL</td>
+              {showBrand && <td className="dim">—</td>}
+              <td className="dim">—</td>
+              <td className="num">{fmtNum(Math.round(tot.units))}</td>
+              <td className="num dim">{fmtMoneyFull(tot.gross)}</td>
+              <td className="num dim">{fmtMoneyFull(tot.discount)}</td>
+              <td className="num"><strong style={{ color: 'var(--accent)' }}>{fmtMoneyFull(tot.net)}</strong></td>
+              <td className="num dim">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {data.length > 150 && <div style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>Showing top 150 of {fmtNum(data.length)} by net sales · narrow with filters</div>}
+      </div>
+    </section>
+  );
+}
+
+function InvStatus({ status, avail }) {
+  const oos = (avail || 0) <= 0;
+  const cls = oos ? 'pill-overdue' : 'pill-completed';
+  return <span className={'pill ' + cls}>{status || (oos ? 'out' : 'available')}</span>;
+}
+
+function InventorySection({ inventory, activeBrand, otherSub, brandLabel }) {
+  const items = Array.isArray(inventory) ? inventory : [];
+  const hasBrand = items.some(p => p && p.brand);
+  const num = (v) => { if (typeof v === 'number') return v; if (v == null || v === '') return null; const n = parseFloat(v); return isNaN(n) ? null : n; };
+  const availOf = (p) => { const a = num(p.available); return a != null ? a : num(p.inventory); };
+  const showBrandCol = activeBrand === 'ALL' && hasBrand;
+  const filtered = useMemo(() => {
+    if (activeBrand === 'ALL' || !hasBrand) return items;
+    return items.filter(p => {
+      if (displayBrand(p.brand) !== activeBrand) return false;
+      if (activeBrand === OTHER_BRANDS_LABEL && otherSub) return otherName(p.brand) === otherSub;
+      return true;
+    });
+  }, [items, activeBrand, otherSub, hasBrand]);
+  const sorted = useMemo(() => [...filtered].sort((a, b) => { const av = availOf(a), bv = availOf(b); return (bv == null ? -1 : bv) - (av == null ? -1 : av); }), [filtered]);
+  const skus = filtered.length;
+  const totalUnits = filtered.reduce((s, p) => s + (availOf(p) || 0), 0);
+  const totalReserved = filtered.reduce((s, p) => s + (num(p.reserved) || 0), 0);
+  const oos = filtered.filter(p => (availOf(p) || 0) <= 0).length;
+
+  return (
+    <section className="section inv-zone">
+      <div className="section-header" style={{ marginBottom: 16 }}>
+        <h2 className="section-title"><span className="inv-badge">Live</span>Current <em>inventory</em></h2>
+        <span className="section-meta">{brandLabel} · as of last scrape</span>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-dim)' }}>
+          <div style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>No inventory loaded yet</div>
+          <div style={{ fontSize: 13, lineHeight: 1.7 }}>Inventory populates on the next scrape. Set <code style={{ fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>LEAFLINK_PULL_INVENTORY</code> to <code style={{ fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>1</code> in the workflow, then run the scraper.</div>
+        </div>
+      ) : (
+        <>
+          <div className="kpi-grid" style={{ marginBottom: 18 }}>
+            <Kpi label="Products In Stock" value={fmtNum(skus)} sub="SKUs in this view" accent />
+            <Kpi label="Units Available" value={fmtNum(Math.round(totalUnits))} sub="sellable on hand" />
+            <Kpi label="Units Reserved" value={fmtNum(Math.round(totalReserved))} sub="committed to orders" />
+            <Kpi label="Out Of Stock" value={fmtNum(oos)} sub="SKUs at zero" />
+          </div>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}><div style={{ overflowX: 'auto', maxHeight: 520 }}>
+            <table className="data-table">
+              <thead><tr><th>Product</th>{showBrandCol && <th>Brand</th>}<th>Line</th><th className="num">Available</th><th className="num">Reserved</th><th className="num">Total</th><th>Status</th></tr></thead>
+              <tbody>
+                {sorted.slice(0, 200).map((p, i) => {
+                  const a = availOf(p), rsv = num(p.reserved), tt = num(p.inventory);
+                  return (
+                    <tr key={i}>
+                      <td>{p.name || '—'}</td>
+                      {showBrandCol && <td className="dim">{p.brand || '—'}</td>}
+                      <td className="dim">{p.line || '—'}</td>
+                      <td className="num"><strong style={{ color: (a || 0) <= 0 ? 'var(--rose)' : 'var(--text)' }}>{a == null ? '—' : fmtNum(Math.round(a))}</strong></td>
+                      <td className="num dim">{rsv == null ? '—' : fmtNum(Math.round(rsv))}</td>
+                      <td className="num dim">{tt == null ? '—' : fmtNum(Math.round(tt))}</td>
+                      <td><InvStatus status={p.status} avail={a} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {sorted.length > 200 && <div style={{ padding: '12px 16px', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>Showing 200 of {fmtNum(sorted.length)} products</div>}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
